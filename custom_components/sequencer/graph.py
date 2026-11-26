@@ -116,20 +116,103 @@ def order(cfg: dict[str, Any]) -> list[str]:
     return out
 
 
-def start_sequence(cfg: dict[str, Any], zone_id: str) -> list[str]:
+# ------------------------------------------------------------------ sequences
+# A zone ("grupp" or a standalone "sekvens") runs either the automatic sequence
+# (derived from rules + group members) or a custom one: zone["custom"] =
+# {"start": [step], "stop": [step], "base_start": [...], "base_stop": [...]}
+# step = {"node": id, "delay": float | None (None = equipment default), "force": bool}
+#   or a free "moment" not tied to equipment or rules:
+#        {"kind": "action", "id", "name", "entities", "spec": {...}, "wait": {...}, "delay"}
+# Moments can also be added to an *automatic* sequence without freezing it:
+# zone["extras"] = {"start": [{"after": node id | None, "step": moment}], "stop": [...]}
+
+
+def is_moment(step: dict[str, Any]) -> bool:
+    return step.get("kind") == "action"
+
+
+def merge_extras(base: list[dict[str, Any]], extras: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    anchors = {s.get("node") for s in base}
+    out = [e["step"] for e in extras if not e.get("after")]
+    for step in base:
+        out.append(step)
+        out.extend(e["step"] for e in extras if e.get("after") and e["after"] == step.get("node"))
+    out.extend(e["step"] for e in extras if e.get("after") and e["after"] not in anchors)
+    return out
+
+
+def _zone(cfg: dict[str, Any], zone_id: str) -> dict[str, Any] | None:
+    return next((z for z in cfg.get("zones", []) if z["id"] == zone_id), None)
+
+
+def custom_of(cfg: dict[str, Any], zone_id: str) -> dict[str, Any] | None:
+    zone = _zone(cfg, zone_id)
+    return (zone or {}).get("custom") or None
+
+
+def auto_start(cfg: dict[str, Any], zone_id: str) -> list[str]:
     needed = closure(cfg, [zone_id])
     return [n for n in order(cfg) if n in needed]
 
 
-def stop_sequence(cfg: dict[str, Any], zone_id: str | None, active_zones) -> list[str]:
-    """Equipment to turn off when ``zone_id`` stops (None = everything).
+def auto_stop(cfg: dict[str, Any], zone_id: str) -> list[str]:
+    return list(reversed(auto_start(cfg, zone_id)))
 
-    Equipment still needed by another active zone is kept running.
+
+def zone_needs(cfg: dict[str, Any], zone_id: str) -> set[str]:
+    """Equipment a zone keeps running while it is active."""
+    nodes = node_map(cfg)
+    custom = custom_of(cfg, zone_id)
+    if custom:
+        return {s["node"] for s in custom.get("start", []) if not is_moment(s) and s.get("node") in nodes}
+    return closure(cfg, [zone_id])
+
+
+def needs_of(cfg: dict[str, Any], zone_ids) -> set[str]:
+    out: set[str] = set()
+    for zid in zone_ids:
+        out |= zone_needs(cfg, zid)
+    return out
+
+
+def start_steps(cfg: dict[str, Any], zone_id: str) -> list[dict[str, Any]]:
+    nodes = node_map(cfg)
+    custom = custom_of(cfg, zone_id)
+    if custom:
+        return [s for s in custom.get("start", []) if is_moment(s) or s.get("node") in nodes]
+    extras = ((_zone(cfg, zone_id) or {}).get("extras") or {}).get("start", [])
+    return merge_extras([{"node": n} for n in auto_start(cfg, zone_id)], extras)
+
+
+def stop_steps(cfg: dict[str, Any], zone_id: str | None, active_zones) -> list[dict[str, Any]]:
+    """Steps to run when ``zone_id`` stops (None = everything).
+
+    Equipment still needed by another active zone is skipped, unless the step is
+    marked "force" (stäng alltid av).
     """
-    keep = closure(cfg, [z for z in active_zones if z != zone_id])
-    target = set(node_map(cfg)) if zone_id is None else closure(cfg, [zone_id])
-    off = target - keep
-    return [n for n in reversed(order(cfg)) if n in off]
+    nodes = node_map(cfg)
+    keep = needs_of(cfg, [z for z in active_zones if z != zone_id])
+    if zone_id is None:
+        steps = [{"node": n} for n in reversed(order(cfg))]
+    else:
+        custom = custom_of(cfg, zone_id)
+        if custom:
+            steps = custom.get("stop", [])
+        else:
+            extras = ((_zone(cfg, zone_id) or {}).get("extras") or {}).get("stop", [])
+            steps = merge_extras([{"node": n} for n in auto_stop(cfg, zone_id)], extras)
+    return [
+        s for s in steps
+        if is_moment(s) or (s.get("node") in nodes and (s.get("force") or s["node"] not in keep))
+    ]
+
+
+def start_sequence(cfg: dict[str, Any], zone_id: str) -> list[str]:
+    return [s["node"] for s in start_steps(cfg, zone_id) if not is_moment(s)]
+
+
+def stop_sequence(cfg: dict[str, Any], zone_id: str | None, active_zones) -> list[str]:
+    return [s["node"] for s in stop_steps(cfg, zone_id, active_zones) if not is_moment(s)]
 
 
 # --------------------------------------------------------------------- migration

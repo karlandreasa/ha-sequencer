@@ -6,11 +6,21 @@ Lägger till fliken **Sekvenser** i sidomenyn. Där ritar du upp din anläggning
 
 | Flik | Vad du gör där |
 |---|---|
-| **Styrning** | Starta och stäng av grupper, "Stäng av allt" och live-schema över vad som är igång. Håll muspekaren över en grupp för att se vilken utrustning den använder. |
-| **Flödesschema** | Lägg till utrustning med en bild (mixer, slutsteg, högtalare, DSP …), dra den dit du vill och dra pilar mellan enheterna. En pil betyder **startas före** och **stängs av efter**. |
-| **Regler** | Samma ordning som pilarna, men i textform. Här finns också *prioritet* (alltid först / alltid sist), fördröjningar och väntevillkor samlade i en tabell. |
+| **Styrning** | Starta och stäng av grupper och sekvenser, "Stäng av allt" och live-schema över vad som är igång. |
+| **Utrustning & regler** | *Schema:* lägg till utrustning med en bild och dra pilar mellan enheterna. En pil betyder **startas före** och **stängs av efter**. *Regler:* samma ordning i textform, plus prioritet (alltid först / alltid sist), fördröjningar och väntevillkor. Reglerna gäller hela anläggningen. |
 | **Grupper** | Välj vilken utrustning en grupp behöver. Det som krävs före tas med automatiskt. Här väljer du också gruppens status-LED. |
-| **Fjärrkontroller** | Koppla knappar till grupper med åtgärden *Starta*, *Stäng av* eller *Växla*. Lyssna-läget hittar knappen åt dig. |
+| **Sekvenser** | Varje grupp får en sekvens automatiskt. Den kan justeras för hand, och du kan också göra egna sekvenser helt utan grupper. Se nedan. |
+| **Fjärrkontroller** | Koppla knappar till grupper och sekvenser med åtgärden *Starta*, *Stäng av* eller *Växla*. Lyssna-läget hittar knappen åt dig. |
+
+## Sekvenser
+
+- **Automatisk:** byggs av reglerna och gruppens utrustning och följer med när något ändras.
+- **Moment** (ljus/färg, paus, vänta tills …, DMX-scen, tjänst, slå på/av en entitet) läggs in var du vill. Moment följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de inte heller sekvensen, utan den fortsätter att följa reglerna.
+- **Anpassad** (🟡): när du flyttar, tar bort eller lägger till utrustning eller ändrar en fördröjning blir sekvensen anpassad, och den uppdateras då inte längre av sig själv. *Återställ till automatisk* finns alltid.
+- **Gruppen har ändrats** (🟠): om gruppen eller reglerna ändras efter att du anpassat sekvensen ser du vad som saknas. Du kan välja *Lägg till saknade på föreslagen plats*, *Behåll min version* eller *Återställ*.
+- **⚠ Varning** visas **bara** när din ordning bryter mot en regel, t.ex. slutsteg före mixer. Sekvensen körs ändå i din ordning.
+- **Kör på ändå:** det som redan är igång, t.ex. mixern från ett annat rum, hoppas över, inklusive dess väntan och fördröjning.
+- **Delad utrustning** hoppas över vid avstängning om en annan grupp eller sekvens som är igång använder den, utom när steget är markerat *stäng alltid av*.
 
 ## Lyssna – lägg till med knapptryck
 
@@ -76,5 +86,7 @@ Välj en light- eller switch-entitet, t.ex. en GPIO-LED:
 ## Installation
 
 **Marketplace (HA 2026.11+):** Inställningar → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → installera → starta om. Lägg sedan till integrationen *Sequencer* under Enheter och tjänster.
+
+`switch.<namn>` skapas för både grupper och egna sekvenser.
 
 Sekvenser från version 1 konverteras automatiskt till utrustning och grupper.

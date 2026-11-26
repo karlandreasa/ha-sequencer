@@ -237,11 +237,9 @@ class SequencerManager:
         try:
             async with self._lock:
                 if starting:
-                    seq = graph.start_sequence(self.config, key)
+                    seq = graph.start_steps(self.config, key)
                 else:
-                    seq = graph.stop_sequence(
-                        self.config, None if key == ALL_ZONES else key, self.zones_active
-                    )
+                    seq = graph.stop_steps(self.config, None if key == ALL_ZONES else key, self.zones_active)
                 self.hass.bus.async_fire(
                     EVENT_SEQUENCER,
                     {"zone_id": key, "name": name, "action": "start" if starting else "stop", "type": "started"},
@@ -270,28 +268,45 @@ class SequencerManager:
                 self._tasks.pop(key, None)
             self._notify()
 
-    async def _run_nodes(self, key: str, seq: list[str], on: bool) -> list[str]:
+    async def _run_nodes(self, key: str, steps: list[dict[str, Any]], on: bool) -> list[str]:
+        """Run steps in order. Equipment that is already in the right state is skipped
+        (including its wait and delay), so a room never gets stuck on something another
+        room already started."""
         nodes = graph.node_map(self.config)
         errors: list[str] = []
-        todo: list[dict[str, Any]] = []
-        for nid in seq:
+        todo: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        for step in steps:
+            if graph.is_moment(step):
+                # Free moment (colour change, pause, DMX scene …): always runs, no state tracking.
+                todo.append(({
+                    "id": f"moment_{step.get('id')}",
+                    "name": step.get("name") or "Moment",
+                    "entities": step.get("entities") or [],
+                    "on": step.get("spec") or {"action": "none"},
+                    "wait_on": step.get("wait"),
+                    "_moment": True,
+                }, step))
+                continue
+            nid = step.get("node")
             node = nodes.get(nid)
             if node is None:
                 continue
             if self._needs_on(node) if on else self._needs_off(node):
-                todo.append(node)
+                todo.append((node, step))
             else:
                 self.tracked[nid] = on  # already in the right state, or visual-only
         self._save_state()
         self._notify()
 
-        for idx, node in enumerate(todo):
+        for idx, (node, step) in enumerate(todo):
             nid = node["id"]
             label = node.get("name") or "?"
-            self.transient[nid] = "starting" if on else "stopping"
+            moment = node.get("_moment", False)
+            if not moment:
+                self.transient[nid] = "starting" if on else "stopping"
             self._set_op(key, node=label, wait_until=None, waiting=None)
             try:
-                wait = node.get("wait_on" if on else "wait_off")
+                wait = node.get("wait_on") if moment else node.get("wait_on" if on else "wait_off")
                 if wait and wait.get("conditions"):
                     try:
                         await self._async_wait(key, wait)
@@ -305,15 +320,18 @@ class SequencerManager:
                         self._set_op(key, errors=list(errors))
 
                 try:
-                    await self._async_execute(node, on)
+                    await self._async_execute(node, True if moment else on)
                 except Exception as err:  # noqa: BLE001
-                    _LOGGER.error("'%s' failed to turn %s: %s", label, "on" if on else "off", err)
+                    _LOGGER.error("'%s' failed: %s", label, err)
                     errors.append(f"{label}: {err}")
                     self._set_op(key, errors=list(errors))
-                self.tracked[nid] = on
-                self._save_state()
+                if not moment:
+                    self.tracked[nid] = on
+                    self._save_state()
 
-                delay = float(node.get("delay_on" if on else "delay_off") or 0)
+                override = step.get("delay")
+                default = 0 if moment else (node.get("delay_on" if on else "delay_off") or 0)
+                delay = float(override if override not in (None, "") else default)
                 if delay > 0 and idx < len(todo) - 1:
                     self._set_op(key, wait_until=time.time() + delay, waiting=None)
                     await asyncio.sleep(delay)

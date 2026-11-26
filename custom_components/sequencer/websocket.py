@@ -79,6 +79,57 @@ WAIT_SCHEMA = vol.Any(
     ),
 )
 
+MOMENT_ACTIONS = ["turn_on", "turn_off", "light", "light_off", "dmx", "wol", "rpc_shutdown", "service", "none"]
+
+
+def _step(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise vol.Invalid("ogiltigt steg")
+    if value.get("kind") == "action":
+        return MOMENT_SCHEMA(value)
+    return NODE_STEP_SCHEMA(value)
+
+
+NODE_STEP_SCHEMA = vol.Schema(
+    {
+        vol.Required("node"): cv.string,
+        vol.Optional("delay", default=None): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0, max=3600))),
+        vol.Optional("force", default=False): bool,
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+EXTRAS_SCHEMA = vol.Schema(
+    {
+        vol.Optional("start", default=[]): [vol.Schema({vol.Optional("after", default=None): vol.Any(None, cv.string), vol.Required("step"): _step}, extra=vol.REMOVE_EXTRA)],
+        vol.Optional("stop", default=[]): [vol.Schema({vol.Optional("after", default=None): vol.Any(None, cv.string), vol.Required("step"): _step}, extra=vol.REMOVE_EXTRA)],
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+CUSTOM_SCHEMA = vol.Schema(
+    {
+        vol.Optional("start", default=[]): [_step],
+        vol.Optional("stop", default=[]): [_step],
+        vol.Optional("base_start", default=[]): [cv.string],
+        vol.Optional("base_stop", default=[]): [cv.string],
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
+MOMENT_SCHEMA = vol.Schema(
+    {
+        vol.Required("kind"): "action",
+        vol.Required("id"): cv.string,
+        vol.Optional("name", default=""): vol.Any(None, cv.string),
+        vol.Optional("entities", default=[]): vol.All(cv.ensure_list, [cv.entity_id]),
+        vol.Optional("spec", default={}): _action_spec(MOMENT_ACTIONS),
+        vol.Optional("wait", default=None): WAIT_SCHEMA,
+        vol.Optional("delay", default=None): vol.Any(None, vol.All(vol.Coerce(float), vol.Range(min=0, max=3600))),
+    },
+    extra=vol.REMOVE_EXTRA,
+)
+
 NODE_SCHEMA = vol.Schema(
     {
         vol.Required("id"): cv.string,
@@ -112,6 +163,9 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Optional("icon", default=""): vol.Any(None, cv.string),
                     vol.Optional("color", default="#2196f3"): cv.string,
                     vol.Optional("nodes", default=[]): [cv.string],
+                    vol.Optional("standalone", default=False): bool,
+                    vol.Optional("custom", default=None): vol.Any(None, CUSTOM_SCHEMA),
+                    vol.Optional("extras", default=None): vol.Any(None, EXTRAS_SCHEMA),
                     vol.Optional("led", default=""): vol.Any(None, "", cv.entity_id),
                     vol.Optional("led_minutes", default=30): vol.All(vol.Coerce(float), vol.Range(min=0, max=1440)),
                 },
@@ -156,6 +210,9 @@ def _validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         raise vol.Invalid("Kopplingarna bildar en loop – något kan inte startas före sig självt")
     for z in cfg["zones"]:
         z["nodes"] = [n for n in z["nodes"] if n in ids]
+        if z.get("custom"):
+            for key in ("start", "stop"):
+                z["custom"][key] = [st for st in z["custom"][key] if st.get("kind") == "action" or st["node"] in ids]
     zone_ids = {z["id"] for z in cfg["zones"]}
     for r in cfg["remotes"]:
         if r["target"] != ALL_ZONES and r["target"] not in zone_ids:

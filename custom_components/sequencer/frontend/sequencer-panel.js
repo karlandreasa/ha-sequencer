@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -97,6 +97,50 @@ function order(cfg) {
   }
   for (const i of ids) if (!out.includes(i)) out.push(i);
   return out;
+}
+function autoStart(cfg, zid) { const need = closure(cfg, [zid]); return order(cfg).filter((n) => need.has(n)); }
+function zoneNeeds(cfg, zid) {
+  const z = cfg.zones.find((x) => x.id === zid);
+  if (z?.custom) { const ids = new Set(cfg.nodes.map((n) => n.id)); return new Set(z.custom.start.map((s) => s.node).filter((n) => ids.has(n))); }
+  return closure(cfg, [zid]);
+}
+function zoneSteps(cfg, z, which) {
+  if (z.custom) return z.custom[which];
+  const a = autoStart(cfg, z.id);
+  const base = (which === "start" ? a : [...a].reverse()).map((n) => ({ node: n, delay: null, force: false }));
+  return mergeExtras(base, z.extras?.[which] || []);
+}
+function mergeExtras(base, extras) {
+  const anchors = new Set(base.map((s) => s.node));
+  const out = extras.filter((e) => !e.after).map((e) => e.step);
+  for (const st of base) { out.push(st); out.push(...extras.filter((e) => e.after && e.after === st.node).map((e) => e.step)); }
+  out.push(...extras.filter((e) => e.after && !anchors.has(e.after)).map((e) => e.step));
+  return out;
+}
+const isMoment = (st) => st?.kind === "action";
+function momentType(st) {
+  if (st.wait?.conditions?.length) return "wait";
+  const a = st.spec?.action || "none";
+  return a === "none" ? "pause" : a;
+}
+const MOMENT_TYPES = [["light", "💡 Ljus: färg / dimning"], ["turn_on", "⏻ Slå på entitet"], ["turn_off", "⭘ Stäng av entitet"], ["pause", "⏸ Paus"],
+  ["wait", "⏳ Vänta tills…"], ["dmx", "🎚 DMX-scen"], ["service", "⚙ Tjänst"]];
+const MOMENT_ICON = { light: "💡", light_off: "💡", turn_on: "⏻", turn_off: "⭘", pause: "⏸", wait: "⏳", dmx: "🎚", service: "⚙", wol: "🖥", rpc_shutdown: "🖥" };
+function seqOutdated(cfg, z) {
+  if (!z.custom || z.standalone) return false;
+  const a = autoStart(cfg, z.id);
+  return JSON.stringify(a) !== JSON.stringify(z.custom.base_start || []);
+}
+function ruleWarnings(cfg, steps, which) {
+  const idx = Object.fromEntries(steps.map((s, i) => [s.node, i]).filter(([n]) => n));
+  const name = (id) => cfg.nodes.find((n) => n.id === id)?.name || "?";
+  const warn = {};
+  for (const e of cfg.edges) {
+    if (!(e.from in idx) || !(e.to in idx)) continue;
+    if (which === "start" && idx[e.to] < idx[e.from]) (warn[e.to] ||= []).push(`Regeln säger att ${name(e.from)} startas före`);
+    if (which === "stop" && idx[e.from] < idx[e.to]) (warn[e.from] ||= []).push(`Regeln säger att ${name(e.to)} stängs av före`);
+  }
+  return warn;
 }
 function wouldCycle(cfg, from, to) {
   if (from === to) return true;
@@ -277,6 +321,22 @@ table.rules input[type=number] { width:76px; }
 .cand .t { flex:1; word-break:break-all; }
 .current { padding:10px 12px; border-radius:8px; background:var(--secondary-background-color); font-size:14px; }
 .flash { animation:flash 1.2s ease-out; } @keyframes flash { from { background:color-mix(in srgb, var(--ok) 40%, transparent); } }
+.dotw { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:middle; flex:none; }
+.dotw.y { background:#f9b800; } .dotw.o { background:#ef6c00; }
+.banner { border-radius:10px; padding:10px 12px; margin:10px 0; font-size:14px; line-height:1.5; }
+.banner.o { background:color-mix(in srgb, #ef6c00 14%, transparent); border:1px solid color-mix(in srgb, #ef6c00 45%, transparent); }
+.banner.y { background:color-mix(in srgb, #f9b800 14%, transparent); border:1px solid color-mix(in srgb, #f9b800 50%, transparent); }
+.steps { border:1px solid var(--divider-color); border-radius:10px; overflow:hidden; }
+.step { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--divider-color); flex-wrap:wrap; }
+.step:last-child { border-bottom:none; }
+.step .num { width:22px; height:22px; border-radius:50%; background:var(--primary-color); color:var(--text-primary-color,#fff); font-size:12px; display:flex; align-items:center; justify-content:center; flex:none; }
+.step svg { width:34px; height:26px; color:var(--secondary-text-color); flex:none; }
+.step .t { flex:1; min-width:140px; font-size:14px; }
+.step .t small { display:block; color:var(--secondary-text-color); font-size:12px; }
+.step .t .w { color:#ef6c00; }
+.step input[type=number] { width:72px; }
+.step input[type=number]:not(:placeholder-shown) { border-color:#f9b800; }
+.sub-nav { display:flex; max-width:340px; margin:0 0 12px; }
 /* ---- learn box */
 .learnbox { margin:8px 0; }
 .learnbox .cand { padding:6px 4px; }
@@ -447,6 +507,10 @@ class SequencerPanel extends HTMLElement {
       n[k]._dataText = n[k].data && Object.keys(n[k].data).length ? JSON.stringify(n[k].data, null, 2) : "";
     }
     for (const r of d.remotes) r._dataText = r.trigger?.event_data ? JSON.stringify(r.trigger.event_data, null, 2) : "";
+    const prepMoment = (st) => { if (isMoment(st) && st.spec) st.spec._dataText = st.spec.data && Object.keys(st.spec.data).length ? JSON.stringify(st.spec.data, null, 2) : ""; };
+    for (const z of d.zones) {
+      for (const w of ["start", "stop"]) { (z.custom?.[w] || []).forEach(prepMoment); (z.extras?.[w] || []).forEach((e) => prepMoment(e.step)); }
+    }
     this._draft = d;
     this._dirty = false;
     this._external = false;
@@ -488,8 +552,8 @@ class SequencerPanel extends HTMLElement {
   }
 
   _doRender() {
-    const tabs = [["control", "Styrning", "Styrning", "mdi:play-circle-outline"], ["flow", "Flödesschema", "Schema", "mdi:sitemap-outline"],
-      ["rules", "Regler", "Regler", "mdi:format-list-checks"], ["zones", "Grupper", "Grupper", "mdi:speaker-multiple"], ["remotes", "Fjärrkontroller", "Fjärrar", "mdi:remote"]];
+    const tabs = [["control", "Styrning", "Styrning", "mdi:play-circle-outline"], ["flow", "Utrustning & regler", "Utrustning", "mdi:sitemap-outline"],
+      ["zones", "Grupper", "Grupper", "mdi:speaker-multiple"], ["seqs", "Sekvenser", "Sekvenser", "mdi:playlist-play"], ["remotes", "Fjärrkontroller", "Fjärrar", "mdi:remote"]];
     this.shadowRoot.getElementById("tabs").innerHTML = tabs
       .map(([k, l, short, icon]) => `<button class="tab ${this._tab === k ? "sel" : ""}" data-act="tab" data-tab="${k}"><ha-icon icon="${icon}"></ha-icon><span>${this._mobile ? short : l}</span></button>`).join("");
 
@@ -500,7 +564,7 @@ class SequencerPanel extends HTMLElement {
 
     if (this._tab !== "control" && !this._draft) this._resetDraft();
     if (this._tab !== "control") this._fillDatalistsOnce();
-    const html = { control: () => this._controlTab(), flow: () => this._flowTab(), rules: () => this._rulesTab(), zones: () => this._zonesTab(), remotes: () => this._remotesTab() }[this._tab]();
+    const html = { control: () => this._controlTab(), flow: () => (this._sub === "rules" ? this._rulesTab() : this._flowTab()), zones: () => this._zonesTab(), seqs: () => this._seqsTab(), remotes: () => this._remotesTab() }[this._tab]();
     this._main.innerHTML = html;
     this.toggleAttribute("sheet", !!this._main.querySelector(".sheet"));
 
@@ -632,9 +696,9 @@ class SequencerPanel extends HTMLElement {
     const zoneDots = {};
     cfg.zones.forEach((z, i) => {
       const col = z.color || ZONE_COLORS[i % ZONE_COLORS.length];
-      for (const nid of closure(cfg, [z.id])) (zoneDots[nid] ||= []).push(col);
+      for (const nid of zoneNeeds(cfg, z.id)) (zoneDots[nid] ||= []).push(col);
     });
-    const hlSet = highlight ? closure(cfg, [highlight]) : null;
+    const hlSet = highlight ? zoneNeeds(cfg, highlight) : null;
     const hlZone = highlight ? cfg.zones.find((z) => z.id === highlight) : null;
     const hlColor = hlZone ? hlZone.color || ZONE_COLORS[cfg.zones.indexOf(hlZone) % ZONE_COLORS.length] : "";
     const nodes = cfg.nodes.map((n) => {
@@ -713,19 +777,20 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._config;
     if (!cfg.zones.length) {
       return `<div class="content"><div class="card"><h2>Kom igång</h2><div class="hint" style="font-size:14px">
-        <p><b>1. Flödesschema</b> – lägg till din utrustning (mixer, DSP, slutsteg …) och dra pilar mellan dem.
+        <p><b>1. Utrustning</b> – lägg till din utrustning (mixer, DSP, slutsteg …) och dra pilar mellan dem.
         En pil betyder att något <i>startas före</i> nästa sak och <i>stängs av efter</i>.</p>
-        <p><b>2. Regler</b> – finjustera ordning, prioritet ("alltid först"), fördröjningar och villkor som "vänta tills slutsteget rapporterar på".</p>
+        <p><b>2. Regler</b> (under Utrustning) – finjustera ordning, prioritet ("alltid först"), fördröjningar och villkor som "vänta tills slutsteget rapporterar på".</p>
         <p><b>3. Grupper</b> – skapa t.ex. ett rum per grupp och välj vilken utrustning rummet behöver. Delad utrustning (t.ex. en gemensam mixer) startas när första gruppen startar och stängs av först när sista gruppen stängs av.</p>
-        <p><b>4. Fjärrkontroller</b> – koppla knappar direkt till grupperna, utan automationer.</p></div>
+        <p><b>4. Sekvenser</b> – varje grupp får en sekvens automatiskt. Justera den för hand om du vill, eller gör egna sekvenser utan grupper.</p>
+        <p><b>5. Fjärrkontroller</b> – koppla knappar direkt till grupper och sekvenser, utan automationer.</p></div>
         <div class="btns"><button class="primary" data-act="tab" data-tab="flow">Öppna flödesschemat</button></div></div>
         ${cfg.nodes.length ? `<div class="card pad0">${this._diagram("config")}</div>` : ""}</div>`;
     }
     const cards = cfg.zones.map((z, i) => {
       const col = z.color || ZONE_COLORS[i % ZONE_COLORS.length];
-      const n = closure(cfg, [z.id]).size;
+      const n = zoneNeeds(cfg, z.id).size;
       return `<div class="card zone-card ${this._hl === z.id ? "hl" : ""}" data-zone="${esc(z.id)}" style="--zc:${col}">
-        <div class="zc-head"><ha-icon icon="${esc(z.icon || "mdi:speaker-multiple")}"></ha-icon><span class="zc-name">${esc(z.name)}</span>${z.led ? `<span class="led" data-zled="${esc(z.id)}" title="Status-LED"></span>` : ""}<span class="badge" data-zbadge="${esc(z.id)}"></span></div>
+        <div class="zc-head"><ha-icon icon="${esc(z.icon || (z.standalone ? "mdi:playlist-play" : "mdi:speaker-multiple"))}"></ha-icon><span class="zc-name">${esc(z.name)}</span>${z.led ? `<span class="led" data-zled="${esc(z.id)}" title="Status-LED"></span>` : ""}<span class="badge" data-zbadge="${esc(z.id)}"></span></div>
         <div class="zc-info" data-zinfo="${esc(z.id)}" data-default="${n} enheter"></div>
         <div class="btns"><button class="primary" data-act="zone" data-id="${esc(z.id)}" data-action="start">▶ Starta</button>
           <button data-act="zone" data-id="${esc(z.id)}" data-action="stop">■ Stäng av</button></div></div>`;
@@ -741,9 +806,14 @@ class SequencerPanel extends HTMLElement {
   }
 
   /* ------------------------------------------------------------ tab: flow */
+  _subNav() {
+    const sub = this._sub || "schema";
+    return `<div class="seg sub-nav"><button class="${sub === "schema" ? "sel" : ""}" data-act="sub" data-sub="schema">Schema</button><button class="${sub === "rules" ? "sel" : ""}" data-act="sub" data-sub="rules">Regler</button></div>`;
+  }
+
   _flowTab() {
     const node = this._draft.nodes.find((n) => n.id === this._sel.node);
-    return `<div class="content wide">
+    return `<div class="content wide">${this._subNav()}
       <div class="tools">
         <button class="primary" data-act="add-node">+ Lägg till utrustning</button>
         <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? "Lyssnar… <span data-learn-left></span> s" : "🎧 Lägg till med knapptryck"}</button>
@@ -760,7 +830,7 @@ class SequencerPanel extends HTMLElement {
 
   _nodeEditor(n) {
     const cfg = this._draft;
-    const zonesUsing = cfg.zones.filter((z) => closure(cfg, [z.id]).has(n.id));
+    const zonesUsing = cfg.zones.filter((z) => zoneNeeds(cfg, z.id).has(n.id));
     const actSel = (path, opts, cur) => `<select data-nf="${path}">${opts.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
     const spec = (k) => {
       const s = n[k] || {};
@@ -799,21 +869,21 @@ class SequencerPanel extends HTMLElement {
       <div class="btns"><button class="danger small" data-act="del-node">Ta bort utrustning</button></div>`;
   }
 
-  _actionFields(n, k, cur, s) {
-    const num = (f, label, v, attrs = "") => `<label>${label}<input type="number" data-nf="${k}.${f}" value="${esc(v ?? "")}" ${attrs} style="width:100px"></label>`;
-    const txt = (f, label, v, ph = "", type = "text") => `<label class="grow">${label}<input type="${type}" data-nf="${k}.${f}" value="${esc(v ?? "")}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
-    const chk = (f, label, v) => `<label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--primary-text-color)"><input type="checkbox" data-nf="${k}.${f}" ${v ? "checked" : ""}>${label}</label>`;
-    const presets = (f, list) => `<div class="chips" style="margin:2px 0 6px">${list.map(([v, l]) => `<button class="small ${Number(s[f] ?? 0) === v ? "primary" : ""}" data-act="preset" data-path="${k}.${f}" data-v="${v}">${l}</button>`).join("")}</div>`;
+  _actionFields(n, k, cur, s, attr = "data-nf") {
+    const num = (f, label, v, attrs = "") => `<label>${label}<input type="number" ${attr}="${k}.${f}" value="${esc(v ?? "")}" ${attrs} style="width:100px"></label>`;
+    const txt = (f, label, v, ph = "", type = "text") => `<label class="grow">${label}<input type="${type}" ${attr}="${k}.${f}" value="${esc(v ?? "")}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
+    const chk = (f, label, v) => `<label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--primary-text-color)"><input type="checkbox" ${attr}="${k}.${f}" ${v ? "checked" : ""}>${label}</label>`;
+    const presets = (f, list) => `<div class="chips" style="margin:2px 0 6px">${list.map(([v, l]) => `<button class="small ${Number(s[f] ?? 0) === v ? "primary" : ""}" data-act="preset" data-pattr="${attr}" data-path="${k}.${f}" data-v="${v}">${l}</button>`).join("")}</div>`;
     const fadeList = [[0, "Direkt"], [1, "Snabbt 1 s"], [3, "Mjukt 3 s"], [10, "Långsamt 10 s"], [30, "30 s"]];
     if (cur === "light") {
       const lights = (n.entities || []).filter((e) => e.startsWith("light."));
       return `${lights.length ? "" : `<div class="err" style="margin-bottom:6px">Lägg till minst en light-entitet ovan.</div>`}
-        <label>Ljusstyrka: <b data-show="${k}.brightness">${esc(s.brightness ?? 100)} %</b><input type="range" min="0" max="100" step="1" data-nf="${k}.brightness" value="${esc(s.brightness ?? 100)}"></label>
+        <label>Ljusstyrka: <b data-show="${k}.brightness">${esc(s.brightness ?? 100)} %</b><input type="range" min="0" max="100" step="1" ${attr}="${k}.brightness" value="${esc(s.brightness ?? 100)}"></label>
         <div class="lbl" style="margin:8px 0 2px">Övergång</div>${presets("transition", fadeList)}
         <div class="row">${num("transition", "Sekunder", s.transition ?? 0, 'min="0" step="0.5"')}</div>
-        <div class="row"><label>Färg<select data-nf="${k}.color_mode">${[["none", "Behåll"], ["rgb", "Välj färg"], ["temp", "Färgtemperatur"]].map(([v, l]) => `<option value="${v}" ${(s.color_mode || "none") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-          ${s.color_mode === "rgb" ? `<label>Färg<input type="color" data-nf="${k}.rgb" value="${esc(s.rgb || "#ffffff")}" style="width:64px;height:38px;padding:2px"></label>` : ""}
-          ${s.color_mode === "temp" ? `<label class="grow">Temperatur: <b data-show="${k}.kelvin">${esc(s.kelvin || 3000)} K</b><input type="range" min="2000" max="6500" step="100" data-nf="${k}.kelvin" value="${esc(s.kelvin || 3000)}"></label>` : ""}</div>
+        <div class="row"><label>Färg<select ${attr}="${k}.color_mode">${[["none", "Behåll"], ["rgb", "Välj färg"], ["temp", "Färgtemperatur"]].map(([v, l]) => `<option value="${v}" ${(s.color_mode || "none") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          ${s.color_mode === "rgb" ? `<label>Färg<input type="color" ${attr}="${k}.rgb" value="${esc(s.rgb || "#ffffff")}" style="width:64px;height:38px;padding:2px"></label>` : ""}
+          ${s.color_mode === "temp" ? `<label class="grow">Temperatur: <b data-show="${k}.kelvin">${esc(s.kelvin || 3000)} K</b><input type="range" min="2000" max="6500" step="100" ${attr}="${k}.kelvin" value="${esc(s.kelvin || 3000)}"></label>` : ""}</div>
         ${chk("wait", "Vänta tills övergången är klar innan nästa steg", s.wait)}`;
     }
     if (cur === "light_off") {
@@ -838,10 +908,10 @@ class SequencerPanel extends HTMLElement {
           Lösenordet sparas i HA:s lagring.</div></details>`;
     }
     if (cur === "dmx") {
-      return `<div class="row"><label>Protokoll<select data-nf="${k}.protocol">${[["artnet", "Art-Net"], ["sacn", "sACN (E1.31)"]].map(([v, l]) => `<option value="${v}" ${(s.protocol || "artnet") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      return `<div class="row"><label>Protokoll<select ${attr}="${k}.protocol">${[["artnet", "Art-Net"], ["sacn", "sACN (E1.31)"]].map(([v, l]) => `<option value="${v}" ${(s.protocol || "artnet") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           ${num("universe", "Universum", s.universe ?? (s.protocol === "sacn" ? 1 : 0), 'min="0" max="63999"')}</div>
         <div class="row">${txt("host", "IP till DMX-noden (tomt = broadcast/multicast)", s.host, s.protocol === "sacn" ? "multicast" : "255.255.255.255")}</div>
-        <label>Kanaler och värden<textarea data-nf="${k}.channels" placeholder="1=255, 2-4=50%, 10=128" style="font-family:monospace">${esc(s.channels || "")}</textarea></label>
+        <label>Kanaler och värden<textarea ${attr}="${k}.channels" placeholder="1=255, 2-4=50%, 10=128" style="font-family:monospace">${esc(s.channels || "")}</textarea></label>
         <div class="hint">Värde 0–255 eller procent. Intervall med bindestreck, t.ex. <code>1-12=100%</code>.</div>
         <div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
         <div class="row">${num("fade", "Sekunder", s.fade ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills faden är klar", s.wait)}`;
@@ -911,12 +981,12 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const name = (id) => esc(cfg.nodes.find((n) => n.id === id)?.name || "?");
     const opts = (sel) => cfg.nodes.map((n) => `<option value="${esc(n.id)}" ${sel === n.id ? "selected" : ""}>${esc(n.name || "?")}</option>`).join("");
-    if (!cfg.nodes.length) return `<div class="content"><div class="card empty">Lägg till utrustning under <b>Flödesschema</b> först.</div></div>`;
+    if (!cfg.nodes.length) return `<div class="content">${this._subNav()}<div class="card empty">Lägg till utrustning i <b>Schema</b> först.</div></div>`;
     const waitText = (w) => w?.conditions?.length
       ? w.conditions.map((c) => `${esc(this._friendly(c.entity_id))}${c.attribute ? "." + esc(c.attribute) : ""} = ${esc(c.state || "något")}`).join(w.mode === "any" ? " <b>eller</b> " : " <b>och</b> ") + ` <small>(max ${fmtSec(w.timeout ?? 60)} s)</small>`
       : `<span class="hint">–</span>`;
     const ord = order(cfg);
-    return `<div class="content">
+    return `<div class="content">${this._subNav()}
       <div class="card"><h2>Ordning</h2>
         <div class="hint">"A startas före B" betyder också att A stängs av <i>efter</i> B. Reglerna är samma sak som pilarna i flödesschemat.</div>
         ${cfg.edges.map((e, i) => `<div class="rule"><span class="t"><b>${name(e.from)}</b> startas före <b>${name(e.to)}</b> och stängs av efter</span>
@@ -942,16 +1012,17 @@ class SequencerPanel extends HTMLElement {
       <div class="card"><h2>Resultat</h2>
         <div class="preview"><b>Startordning (allt):</b> ${ord.map((id) => name(id)).join(" → ")}<br>
         <b>Avstängning (allt):</b> ${[...ord].reverse().map((id) => name(id)).join(" → ")}</div>
-        <div class="hint" style="margin-top:8px">En grupp kör bara den del av ordningen som den behöver. Se fliken Grupper.</div>
+        <div class="hint" style="margin-top:8px">En grupp kör bara den del av ordningen som den behöver. Se fliken Sekvenser.</div>
       </div></div>`;
   }
 
   /* ----------------------------------------------------------- tab: zones */
   _zonesTab() {
     const cfg = this._draft;
-    const z = cfg.zones.find((x) => x.id === this._sel.zone);
-    const list = cfg.zones.map((x, i) => `<div class="list-item ${x.id === this._sel.zone ? "sel" : ""}" data-act-item="zone" data-id="${esc(x.id)}">
-      <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${closure(cfg, [x.id]).size} enheter</small></span></div>`).join("");
+    const z = cfg.zones.find((x) => x.id === this._sel.zone && !x.standalone);
+    const list = cfg.zones.filter((x) => !x.standalone).map((x, i) => `<div class="list-item ${x.id === this._sel.zone ? "sel" : ""}" data-act-item="zone" data-id="${esc(x.id)}">
+      <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${zoneNeeds(cfg, x.id).size} enheter${x.custom ? " · sekvens anpassad" : ""}</small></span>
+      ${x.custom ? `<span class="dotw ${seqOutdated(cfg, x) ? "o" : "y"}"></span>` : ""}</div>`).join("");
     const listCard = `<div class="card side-left"><h2>Grupper</h2>${list || `<div class="hint">Inga grupper ännu.</div>`}
         <div class="btns"><button class="primary" data-act="add-zone">+ Ny grupp</button></div></div>`;
     if (this._mobile) {
@@ -971,15 +1042,10 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const all = closure(cfg, [z.id]);
     const others = cfg.zones.filter((o) => o.id !== z.id);
-    const sharedWith = (nid) => others.filter((o) => closure(cfg, [o.id]).has(nid)).map((o) => o.name);
+    const sharedWith = (nid) => others.filter((o) => zoneNeeds(cfg, o.id).has(nid)).map((o) => o.name);
     const nodes = Object.fromEntries(cfg.nodes.map((n) => [n.id, n]));
-    const seq = order(cfg).filter((id) => all.has(id));
-    const startTxt = seq.map((id, i) => `${esc(nodes[id].name || "?")}${i < seq.length - 1 && nodes[id].delay_on ? ` <small>(${fmtSec(nodes[id].delay_on)} s)</small>` : ""}`).join(" → ");
-    const rev = [...seq].reverse();
-    const stopTxt = rev.map((id, i) => {
-      const sh = sharedWith(id);
-      return `${esc(nodes[id].name || "?")}${sh.length ? ` <small>(bara om ${esc(sh.join("/"))} är av)</small>` : ""}${i < rev.length - 1 && nodes[id].delay_off ? ` <small>(${fmtSec(nodes[id].delay_off)} s)</small>` : ""}`;
-    }).join(" → ");
+    const seq = zoneSteps(cfg, z, "start").map((s) => s.node).filter((id) => nodes[id]);
+    const startTxt = seq.map((id) => esc(nodes[id].name || "?")).join(" → ");
     return `<div class="card">
       <div class="row"><label class="grow">Namn<input data-zf="name" value="${esc(z.name)}" placeholder="T.ex. Vardagsrum"></label>
         <label>Ikon<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:sofa"></label></div>
@@ -996,11 +1062,178 @@ class SequencerPanel extends HTMLElement {
       <div class="row"><label class="grow">LED-entitet (light/switch)<input data-zf="led" list="entities" value="${esc(z.led || "")}" placeholder="t.ex. switch.gpio_led_vardagsrum"></label>
         <label>Släck efter (min)<input type="number" min="0" step="1" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div>
       <div class="hint">Blinkar långsamt medan sekvensen körs, lyser fast när allt gick bra (släcks efter angiven tid, 0 = lys tills nästa gång) och blinkar snabbt vid fel tills gruppen körs igen.</div>
-      <div class="lbl">Så här körs gruppen</div>
-      <div class="preview">${seq.length ? `<b>Start:</b> ${startTxt}<br><b>Avstängning:</b> ${stopTxt}` : "Välj utrustning ovan."}</div>
+      <div class="lbl">Sekvens</div>
+      <div class="preview">${z.custom ? `<span class="dotw ${seqOutdated(cfg, z) ? "o" : "y"}"></span> <b>Anpassad för hand</b>${seqOutdated(cfg, z) ? " – gruppen har ändrats sedan dess" : ""}` : "<b>Automatisk</b> – byggs av reglerna"}<br>
+        ${seq.length ? `Start: ${startTxt}` : "Välj utrustning ovan."}
+        <div class="btns" style="margin-top:8px"><button class="small" data-act="goto-seq" data-id="${esc(z.id)}">Visa och ändra sekvensen →</button></div></div>
       <div class="hint" style="margin-top:6px">Det som redan är igång hoppas över vid start. Switch i HA: <code>switch.${esc((z.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_"))}</code> (ungefär) när gruppen sparats.</div>
       <div class="btns"><button class="danger small" data-act="del-zone">Ta bort grupp</button></div>
     </div>`;
+  }
+
+  /* ------------------------------------------------------ tab: sequences */
+  _seqsTab() {
+    const cfg = this._draft;
+    const z = cfg.zones.find((x) => x.id === this._sel.seq);
+    const item = (x, i) => {
+      const dot = x.custom && !x.standalone ? `<span class="dotw ${seqOutdated(cfg, x) ? "o" : "y"}" title="${seqOutdated(cfg, x) ? "Gruppen har ändrats" : "Anpassad för hand"}"></span>` : "";
+      const sub = x.standalone ? "Egen sekvens" : x.custom ? "Grupp · anpassad" : "Grupp · automatisk";
+      return `<div class="list-item ${x.id === this._sel.seq ? "sel" : ""}" data-act-item="seq" data-id="${esc(x.id)}">
+        <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${sub} · ${zoneSteps(cfg, x, "start").length} steg</small></span>${dot}</div>`;
+    };
+    const groups = cfg.zones.map((x, i) => [x, i]).filter(([x]) => !x.standalone);
+    const own = cfg.zones.map((x, i) => [x, i]).filter(([x]) => x.standalone);
+    const listCard = `<div class="card side-left"><h2>Sekvenser</h2>
+      ${groups.length ? `<div class="lbl" style="margin-top:0">Från grupper</div>${groups.map(([x, i]) => item(x, i)).join("")}` : ""}
+      ${own.length ? `<div class="lbl">Egna</div>${own.map(([x, i]) => item(x, i)).join("")}` : ""}
+      ${!cfg.zones.length ? `<div class="hint">Skapa grupper så får de sekvenser automatiskt, eller gör en egen sekvens för hand.</div>` : ""}
+      <div class="btns"><button class="primary" data-act="add-seq">+ Ny egen sekvens</button></div>
+      <div class="hint" style="margin-top:10px"><span class="dotw y"></span> ändrad för hand &nbsp; <span class="dotw o"></span> gruppen har ändrats sedan dess</div></div>`;
+    const editor = z ? this._seqEditor(z) : `<div class="card empty">Varje grupp får en sekvens automatiskt utifrån reglerna. Du kan justera den för hand –
+      då markeras den med en gul prick. Du kan också skapa egna sekvenser helt utan grupper.</div>`;
+    if (this._mobile) {
+      return `<div class="content">${listCard}${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-seq">‹ Tillbaka</button><b>${esc(z.name)}</b></div>
+        <div class="sheet-body">${editor}</div></div>` : ""}</div>`;
+    }
+    return `<div class="content wide"><div class="flow-layout">${listCard}<div class="grow">${editor}</div></div></div>`;
+  }
+
+  _seqEditor(z) {
+    const cfg = this._draft;
+    const nodes = Object.fromEntries(cfg.nodes.map((n) => [n.id, n]));
+    let head = "";
+    if (z.standalone) {
+      head = `<div class="row"><label class="grow">Namn<input data-zf="name" value="${esc(z.name)}" placeholder="T.ex. Gudstjänst"></label>
+          <label>Ikon<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:church"></label></div>
+        <div class="swatches" style="margin-bottom:6px">${ZONE_COLORS.map((c) => `<button class="swatch ${z.color === c ? "sel" : ""}" style="background:${c}" data-act="zone-color" data-color="${c}"></button>`).join("")}</div>
+        <details><summary>Status-LED</summary><div class="row"><label class="grow">LED-entitet<input data-zf="led" list="entities" value="${esc(z.led || "")}"></label>
+          <label>Släck efter (min)<input type="number" min="0" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div></details>`;
+    } else {
+      head = `<div class="row-between"><h2 style="margin:0">${esc(z.name)}</h2><button class="small" data-act="goto-zone" data-id="${esc(z.id)}">Gruppens utrustning →</button></div>`;
+      if (!z.custom) head += `<div class="banner" style="background:var(--secondary-background-color)"><b>Automatisk.</b> Byggs av reglerna och gruppens utrustning och uppdateras av sig själv. Ändrar du något nedan blir den anpassad.</div>`;
+      else if (seqOutdated(cfg, z)) {
+        const auto = autoStart(cfg, z.id); const have = new Set(z.custom.start.filter((s) => !isMoment(s)).map((s) => s.node));
+        const missing = auto.filter((n) => !have.has(n)); const extra = [...have].filter((n) => !auto.includes(n));
+        head += `<div class="banner o"><span class="dotw o"></span> <b>Gruppen eller reglerna har ändrats</b> sedan du anpassade sekvensen.
+          ${missing.length ? `<br>Saknas: ${missing.map((n) => esc(nodes[n]?.name || "?")).join(", ")}` : ""}
+          ${extra.length ? `<br>Ingår inte längre automatiskt: ${extra.map((n) => esc(nodes[n]?.name || "?")).join(", ")}` : ""}
+          ${!missing.length && !extra.length ? "<br>Den automatiska ordningen har ändrats." : ""}
+          <div class="btns" style="margin-top:6px">${missing.length ? `<button class="small primary" data-act="seq-addmissing">Lägg till saknade på föreslagen plats</button>` : ""}
+          <button class="small" data-act="seq-ignore">Behåll min version</button><button class="small" data-act="seq-reset">Återställ till automatisk</button></div></div>`;
+      } else head += `<div class="banner y"><span class="dotw y"></span> <b>Anpassad för hand.</b> Uppdateras inte längre automatiskt. <button class="small" data-act="seq-reset" style="margin-left:6px">Återställ till automatisk</button></div>`;
+    }
+    const section = (which, title, hint) => {
+      const steps = zoneSteps(cfg, z, which);
+      const warns = ruleWarnings(cfg, steps, which);
+      const others = cfg.zones.filter((o) => o.id !== z.id);
+      const rows = steps.map((st, i) => {
+        const last = i === steps.length - 1;
+        if (isMoment(st)) return this._momentRow(z, st, which, i, last, steps);
+        const n = nodes[st.node]; if (!n) return "";
+        const def = which === "start" ? n.delay_on : n.delay_off;
+        const wait = which === "start" ? n.wait_on : n.wait_off;
+        const shared = which === "stop" ? others.filter((o) => zoneNeeds(cfg, o.id).has(n.id)).map((o) => o.name) : [];
+        return `<div class="step" data-which="${which}" data-i="${i}"><span class="num">${i + 1}</span>${(IMAGES[n.image] || IMAGES.generic)[1]}
+          <span class="t">${esc(n.name || "?")}
+            ${wait?.conditions?.length ? `<small>⏳ väntar på villkor först</small>` : ""}
+            ${(warns[n.id] || []).map((w) => `<small class="w">⚠ ${esc(w)} – körs ändå i din ordning</small>`).join("")}
+            ${shared.length ? `<small>Delas med ${esc(shared.join(", "))} – ${st.force ? "<b>stängs alltid av</b>" : "hoppas över om den är igång"}</small>` : ""}</span>
+          ${last ? "" : `<label style="flex-direction:row;align-items:center;gap:4px">vänta<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="${fmtSec(def || 0)}">s</label>`}
+          ${which === "stop" && shared.length ? `<label style="flex-direction:row;align-items:center;gap:4px;font-size:12px"><input type="checkbox" data-sforce="1" ${st.force ? "checked" : ""}>stäng alltid av</label>` : ""}
+          <button class="icon" data-act="seq-up" ${i === 0 ? "disabled" : ""} title="Flytta upp">▲</button>
+          <button class="icon" data-act="seq-down" ${last ? "disabled" : ""} title="Flytta ned">▼</button>
+          <button class="icon" data-act="seq-del" title="Ta bort steg">✕</button></div>`;
+      }).join("");
+      const have = new Set(steps.map((s) => s.node));
+      const avail = cfg.nodes.filter((n) => !have.has(n.id));
+      return `<h3>${title}</h3><div class="hint" style="margin-bottom:6px">${hint}</div>
+        <div class="steps">${rows || `<div class="step"><span class="hint">Inga steg.</span></div>`}</div>
+        <div class="row" style="margin-top:8px">
+          ${avail.length ? `<select data-seqadd="${which}"><option value="">+ Lägg till utrustning…</option>${avail.map((n) => `<option value="${esc(n.id)}">${esc(n.name || "?")}</option>`).join("")}</select>` : ""}
+          <select data-momadd="${which}"><option value="">+ Lägg till moment…</option>${MOMENT_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>`;
+    };
+    return `<div class="card">${head}
+      <div class="hint">Moment (färg, paus, DMX-scen …) följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de den inte heller – den fortsätter följa reglerna.</div>
+      ${section("start", "Start", "Det som redan är igång (t.ex. från ett annat rum) hoppas över, och sekvensen fortsätter direkt. Tomt väntefält = utrustningens standard.")}
+      ${section("stop", "Avstängning", "Utrustning som en annan grupp eller sekvens fortfarande använder hoppas över – om du inte kryssar i ”stäng alltid av”.")}
+      ${z.standalone ? `<div class="btns" style="margin-top:16px"><button class="danger small" data-act="del-seq">Ta bort sekvensen</button></div>` : ""}</div>`;
+  }
+
+  _momentRow(z, st, which, i, last, steps) {
+    const type = momentType(st);
+    const open = this._openStep === st.id;
+    const auto = !z.custom;
+    let summary = "";
+    if (type === "pause") summary = `${fmtSec(st.delay ?? 0)} s`;
+    else if (type === "wait") { const c = st.wait.conditions[0] || {}; summary = `${this._friendly(c.entity_id || "?")} = ${c.state || "något"} (max ${fmtSec(st.wait.timeout ?? 60)} s)`; }
+    else if (type === "light") summary = `${(st.entities || []).map((e) => this._friendly(e)).join(", ") || "ingen lampa vald"} · ${st.spec.brightness ?? 100} %${st.spec.color_mode === "rgb" ? ` · <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${esc(st.spec.rgb)}"></span>` : st.spec.color_mode === "temp" ? ` · ${st.spec.kelvin} K` : ""}`;
+    else if (type === "dmx") summary = `${esc(st.spec.channels || "inga kanaler")}`;
+    else if (type === "service") summary = esc(st.spec.service || "ingen tjänst vald");
+    else summary = (st.entities || []).map((e) => esc(this._friendly(e))).join(", ") || "ingen entitet vald";
+    const row = `<div class="step" data-which="${which}" data-i="${i}" data-mid="${esc(st.id)}" style="background:color-mix(in srgb, var(--primary-color) 5%, transparent)">
+      <span class="num" style="background:var(--secondary-text-color)">${i + 1}</span><span style="font-size:20px;width:34px;text-align:center">${MOMENT_ICON[type] || "•"}</span>
+      <span class="t">${esc(st.name || "Moment")}<small>Moment · ${summary}</small></span>
+      ${type !== "pause" && !last ? `<label style="flex-direction:row;align-items:center;gap:4px">vänta<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="0">s</label>` : ""}
+      ${type === "pause" ? `<label style="flex-direction:row;align-items:center;gap:4px">längd<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? 0}">s</label>` : ""}
+      <button class="small" data-act="mom-edit">${open ? "Klar" : "Ändra"}</button>
+      ${auto ? "" : `<button class="icon" data-act="seq-up" ${i === 0 ? "disabled" : ""}>▲</button><button class="icon" data-act="seq-down" ${last ? "disabled" : ""}>▼</button>`}
+      <button class="icon" data-act="seq-del" title="Ta bort moment">✕</button></div>`;
+    if (!open) return row;
+    let body = `<label>Namn<input data-mf="name" value="${esc(st.name || "")}"></label>`;
+    if (auto) {
+      const base = steps.filter((x) => !isMoment(x));
+      const entry = (z.extras?.[which] || []).find((e) => e.step === st || e.step.id === st.id);
+      body += `<label style="margin-top:8px">Placering<select data-mf="__after"><option value="">Först</option>${base.map((b) => `<option value="${esc(b.node)}" ${entry?.after === b.node ? "selected" : ""}>Efter ${esc(this._draft.nodes.find((n) => n.id === b.node)?.name || "?")}</option>`).join("")}</select></label>`;
+    }
+    if (type === "wait") {
+      const c = st.wait.conditions[0];
+      body += `<div class="row" style="margin-top:8px"><label class="grow">Entitet<input data-mf="wait.conditions.0.entity_id" list="entities" value="${esc(c.entity_id || "")}"></label>
+        <label>Attribut<input data-mf="wait.conditions.0.attribute" value="${esc(c.attribute || "")}" style="width:100px"></label>
+        <label>= värde<input data-mf="wait.conditions.0.state" value="${esc(c.state || "")}" style="width:100px"></label>
+        <label>Max (s)<input type="number" min="1" data-mf="wait.timeout" value="${esc(st.wait.timeout ?? 60)}" style="width:80px"></label></div>`;
+    } else if (type !== "pause") {
+      if (type !== "dmx" && type !== "service") body += `<div class="lbl">Entiteter</div>${this._chips(st.entities, "step")}`;
+      if (type === "service") body += `<label style="margin-top:8px">Tjänst<input data-mf="spec.service" list="services" value="${esc(st.spec.service || "")}" placeholder="t.ex. scene.turn_on"></label>
+        <label style="margin-top:8px">Data (JSON)<textarea data-mf="spec._dataText">${esc(st.spec._dataText || "")}</textarea></label>`;
+      body += this._actionFields(st, "spec", st.spec.action, st.spec, "data-mf");
+    }
+    return row + `<div class="step" style="display:block;padding:10px 14px 14px 52px">${body}</div>`;
+  }
+
+  _openStepObj() {
+    const z = this._curZone(); if (!z || !this._openStep) return null;
+    for (const which of ["start", "stop"]) {
+      const list = z.custom ? z.custom[which] : (z.extras?.[which] || []).map((e) => e.step);
+      const st = list.find((x) => x.id === this._openStep); if (st) return st;
+    }
+    return null;
+  }
+
+  _newMoment(type) {
+    const st = { kind: "action", id: uid(), name: "", entities: [], spec: { action: "none" }, wait: null, delay: null };
+    if (type === "light") Object.assign(st, { name: "Ljus", spec: { action: "light", brightness: 100, transition: 2, color_mode: "rgb", rgb: "#ffffff" } });
+    if (type === "turn_on") Object.assign(st, { name: "Slå på", spec: { action: "turn_on" } });
+    if (type === "turn_off") Object.assign(st, { name: "Stäng av", spec: { action: "turn_off" } });
+    if (type === "pause") Object.assign(st, { name: "Paus", delay: 5 });
+    if (type === "wait") Object.assign(st, { name: "Vänta tills…", wait: { mode: "all", timeout: 60, on_timeout: "continue", conditions: [{ entity_id: "", attribute: "", state: "on" }] } });
+    if (type === "dmx") Object.assign(st, { name: "DMX-scen", spec: { action: "dmx", protocol: "artnet", universe: 0, host: "", channels: "", fade: 2 } });
+    if (type === "service") Object.assign(st, { name: "Tjänst", spec: { action: "service", service: "", _dataText: "" } });
+    return st;
+  }
+
+  _ensureCustom(z) {
+    if (z.custom) return;
+    const a = autoStart(this._draft, z.id);
+    const mk = (ids, which) => mergeExtras(ids.map((n) => ({ node: n, delay: null, force: false })), z.extras?.[which] || []);
+    z.custom = { start: mk(a, "start"), stop: mk([...a].reverse(), "stop"), base_start: a, base_stop: [...a].reverse() };
+    z.extras = null;
+  }
+
+  _momWhich(z, id) { return (z.extras?.start || []).some((e) => e.step.id === id) ? "start" : "stop"; }
+
+  _curZone() {
+    const id = this._tab === "seqs" ? this._sel.seq : this._sel.zone;
+    return this._draft.zones.find((x) => x.id === id);
   }
 
   /* --------------------------------------------------------- tab: remotes */
@@ -1064,7 +1297,7 @@ class SequencerPanel extends HTMLElement {
         <label style="flex-direction:row;align-items:center;gap:6px;padding-bottom:8px"><input type="checkbox" data-rf="enabled" ${r.enabled !== false ? "checked" : ""}> Aktiv</label></div>
       <div class="lbl">När knappen trycks</div>
       <div class="row"><label>Gör<select data-rf="action">${["toggle", "start", "stop"].map((a) => `<option value="${a}" ${r.action === a ? "selected" : ""}>${ZONE_ACTION_LABEL[a]}</option>`).join("")}</select></label>
-        <label class="grow">Grupp<select data-rf="target">${cfg.zones.map((z) => `<option value="${esc(z.id)}" ${r.target === z.id ? "selected" : ""}>${esc(z.name)}</option>`).join("")}<option value="${ALL}" ${r.target === ALL ? "selected" : ""}>Alla grupper</option></select></label></div>
+        <label class="grow">Grupp / sekvens<select data-rf="target">${cfg.zones.map((z) => `<option value="${esc(z.id)}" ${r.target === z.id ? "selected" : ""}>${z.standalone ? "Sekvens: " : ""}${esc(z.name)}</option>`).join("")}<option value="${ALL}" ${r.target === ALL ? "selected" : ""}>Alla grupper</option></select></label></div>
       <div class="lbl">Knapp</div>
       <div class="current">${t ? esc(this._triggerText(r)) : `<span class="hint">Ingen knapp vald än</span>`}</div>
       <div class="hint" data-rstat="${esc(r.id)}" style="margin-top:4px"></div>
@@ -1184,6 +1417,7 @@ class SequencerPanel extends HTMLElement {
     if (item) {
       const kind = item.dataset.actItem;
       if (kind === "zone") this._sel.zone = item.dataset.id;
+      if (kind === "seq") this._sel.seq = item.dataset.id;
       if (kind === "remote") { this._sel.remote = item.dataset.id; this._rkind = null; this._devTriggers = null; this._pendingDevice = null; this._stopLearn(); }
       this._render(); return;
     }
@@ -1225,7 +1459,10 @@ class SequencerPanel extends HTMLElement {
         if (!confirm(`Ta bort "${n?.name || "utrustningen"}"?`)) return;
         d.nodes = d.nodes.filter((x) => x.id !== id);
         d.edges = d.edges.filter((e) => e.from !== id && e.to !== id);
-        d.zones.forEach((z) => (z.nodes = z.nodes.filter((x) => x !== id)));
+        d.zones.forEach((z) => {
+          z.nodes = z.nodes.filter((x) => x !== id);
+          if (z.custom) for (const k of ["start", "stop"]) z.custom[k] = z.custom[k].filter((st) => st.node !== id);
+        });
         this._sel.node = null; this._markDirty(); this._render(); return;
       }
       case "del-edge":
@@ -1253,7 +1490,7 @@ class SequencerPanel extends HTMLElement {
         catch (e) { this._toast(`Test misslyckades: ${e.message || e}`, true); }
         return;
       }
-      case "edit-node": this._tab = "flow"; this._sel.node = btn.dataset.id; this._sel.edge = null; this._render(); return;
+      case "edit-node": this._tab = "flow"; this._sub = "schema"; this._sel.node = btn.dataset.id; this._sel.edge = null; this._render(); return;
 
       case "add-rule": {
         const a = this.shadowRoot.getElementById("rule-a").value, b = this.shadowRoot.getElementById("rule-b").value;
@@ -1265,7 +1502,7 @@ class SequencerPanel extends HTMLElement {
       case "del-rule": d.edges.splice(Number(btn.dataset.i), 1); this._markDirty(); this._render(); return;
 
       case "add-zone": {
-        const z = { id: uid(), name: `Grupp ${d.zones.length + 1}`, icon: "", color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], nodes: [] };
+        const z = { id: uid(), name: `Grupp ${d.zones.filter((x) => !x.standalone).length + 1}`, icon: "", color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], nodes: [], standalone: false, custom: null };
         d.zones.push(z); this._sel.zone = z.id; this._markDirty(); this._render(); return;
       }
       case "del-zone": {
@@ -1275,7 +1512,7 @@ class SequencerPanel extends HTMLElement {
         d.remotes.forEach((r) => { if (r.target === z.id) r.target = ALL; });
         this._sel.zone = null; this._markDirty(); this._render(); return;
       }
-      case "zone-color": d.zones.find((x) => x.id === this._sel.zone).color = btn.dataset.color; this._markDirty(); this._render(); return;
+      case "zone-color": this._curZone().color = btn.dataset.color; this._markDirty(); this._render(); return;
 
       case "add-remote": {
         const r = { id: uid(), name: "", enabled: true, kind: "learn", trigger: null, event_type: null, target: d.zones[0]?.id || ALL, action: "toggle", _dataText: "" };
@@ -1288,7 +1525,10 @@ class SequencerPanel extends HTMLElement {
         if (this._learn?.target === btn.dataset.target) this._stopLearn(); else this._startLearn(btn.dataset.target);
         this._render(); return;
       case "use-learn": this._useLearned(this._learn.cands[Number(btn.dataset.i)]); return;
-      case "preset": { const n = this._node(this._sel.node); this._setPath(n, btn.dataset.path, Number(btn.dataset.v)); this._markDirty(); this._render(); return; }
+      case "preset": {
+        const obj = btn.dataset.pattr === "data-mf" ? this._openStepObj() : this._node(this._sel.node);
+        this._setPath(obj, btn.dataset.path, Number(btn.dataset.v)); this._markDirty(); this._render(); return;
+      }
       case "zoom": {
         const sc = this._main.querySelector(".dg-scroll.zoomable .canvas");
         const cur = Number(sc?.dataset.k) || 1;
@@ -1301,11 +1541,57 @@ class SequencerPanel extends HTMLElement {
         this._markDirty(); this._render(); return;
       }
       case "close-zone": this._sel.zone = null; this._render(); return;
+      case "close-seq": this._sel.seq = null; this._render(); return;
+      case "sub": this._sub = btn.dataset.sub; this._render(); return;
+      case "goto-seq": this._tab = "seqs"; this._sel.seq = btn.dataset.id; this._render(); window.scrollTo(0, 0); return;
+      case "goto-zone": this._tab = "zones"; this._sel.zone = btn.dataset.id; this._render(); window.scrollTo(0, 0); return;
+      case "add-seq": {
+        const z = { id: uid(), name: `Sekvens ${d.zones.filter((x) => x.standalone).length + 1}`, icon: "", standalone: true, nodes: [],
+          color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], custom: { start: [], stop: [], base_start: [], base_stop: [] }, led: "", led_minutes: 30 };
+        d.zones.push(z); this._sel.seq = z.id; this._markDirty(); this._render(); return;
+      }
+      case "del-seq": {
+        const z = this._curZone(); if (!confirm(`Ta bort sekvensen "${z.name}"?`)) return;
+        d.zones = d.zones.filter((x) => x.id !== z.id); d.remotes.forEach((r) => { if (r.target === z.id) r.target = ALL; });
+        this._sel.seq = null; this._markDirty(); this._render(); return;
+      }
+      case "seq-reset": { const z = this._curZone(); if (!confirm("Återställa till den automatiska sekvensen? Dina ändringar försvinner.")) return; z.custom = null; this._markDirty(); this._render(); return; }
+      case "seq-ignore": { const z = this._curZone(); const a = autoStart(d, z.id); z.custom.base_start = a; z.custom.base_stop = [...a].reverse(); this._markDirty(); this._render(); return; }
+      case "seq-addmissing": {
+        const z = this._curZone(); const a = autoStart(d, z.id);
+        for (const [which, auto] of [["start", a], ["stop", [...a].reverse()]]) {
+          const list = z.custom[which];
+          auto.forEach((nid, ai) => {
+            if (list.some((s) => s.node === nid)) return;
+            let pos = 0;
+            for (let k = ai - 1; k >= 0; k--) { const j = list.findIndex((s) => s.node === auto[k]); if (j >= 0) { pos = j + 1; break; } }
+            list.splice(pos, 0, { node: nid, delay: null, force: false });
+          });
+        }
+        z.custom.base_start = a; z.custom.base_stop = [...a].reverse(); this._markDirty(); this._render(); return;
+      }
+      case "mom-edit": { const id = btn.closest("[data-mid]").dataset.mid; this._openStep = this._openStep === id ? null : id; this._render(); return; }
+      case "seq-up": case "seq-down": case "seq-del": {
+        const row = btn.closest("[data-which]"); const z = this._curZone();
+        if (act === "seq-del" && row.dataset.mid && !z.custom) {
+          z.extras[row.dataset.which] = z.extras[row.dataset.which].filter((e) => e.step.id !== row.dataset.mid);
+          this._markDirty(); this._render(); return;
+        }
+        this._ensureCustom(z);
+        const list = z.custom[row.dataset.which]; const i = Number(row.dataset.i);
+        if (act === "seq-del") list.splice(i, 1);
+        else { const j = act === "seq-up" ? i - 1 : i + 1; [list[i], list[j]] = [list[j], list[i]]; }
+        this._markDirty(); this._render(); return;
+      }
       case "close-remote": this._sel.remote = null; this._stopLearn(); this._render(); return;
     }
   }
 
-  _entityList(ctx) { return ctx === "node" ? this._node(this._sel.node).entities : []; }
+  _entityList(ctx) {
+    if (ctx === "node") return this._node(this._sel.node).entities;
+    if (ctx === "step") { const st = this._openStepObj(); return st ? (st.entities ||= []) : []; }
+    return [];
+  }
 
   _freeSpot() {
     const taken = this._draft.nodes;
@@ -1325,7 +1611,7 @@ class SequencerPanel extends HTMLElement {
     if (!ENTITY_RE.test(v)) return;
     const list = this._entityList(input.dataset.ctx);
     if (!list.includes(v)) list.push(v);
-    const n = this._node(this._sel.node);
+    const n = input.dataset.ctx === "node" ? this._node(this._sel.node) : null;
     if (n && !n.name) n.name = this._friendly(v);
     this._markDirty(); this._render();
     this._main.querySelector(`.entity-input[data-ctx="${input.dataset.ctx}"]`)?.focus();
@@ -1364,7 +1650,19 @@ class SequencerPanel extends HTMLElement {
     } else if (t.dataset.rr && t.type === "number") {
       const n = this._node(t.closest("[data-rowid]").dataset.rowid); n[t.dataset.rr] = Number(t.value || 0); this._markDirty();
     } else if (t.dataset.zf) {
-      d.zones.find((z) => z.id === this._sel.zone)[t.dataset.zf] = t.dataset.zf === "led_minutes" ? Number(t.value || 0) : t.value; this._markDirty();
+      this._curZone()[t.dataset.zf] = t.dataset.zf === "led_minutes" ? Number(t.value || 0) : t.value; this._markDirty();
+    } else if (t.dataset.sd) {
+      const row = t.closest("[data-which]"); const z = this._curZone();
+      const val = t.value === "" ? null : Number(t.value);
+      if (row.dataset.mid && !z.custom) { const e = z.extras[row.dataset.which].find((x) => x.step.id === row.dataset.mid); e.step.delay = val; this._markDirty(); return; }
+      this._ensureCustom(z);
+      z.custom[row.dataset.which][Number(row.dataset.i)].delay = val; this._markDirty();
+    } else if (t.dataset.mf && t.type !== "checkbox" && t.type !== "color" && t.tagName !== "SELECT") {
+      const st = this._openStepObj(); if (!st) return;
+      const num = t.type === "number" || t.type === "range";
+      this._setPath(st, t.dataset.mf, num ? (t.value === "" ? "" : Number(t.value)) : t.value); this._markDirty();
+      const show = this._main.querySelector(`[data-show="${t.dataset.mf}"]`);
+      if (show) show.textContent = `${t.value}${t.dataset.mf.endsWith("kelvin") ? " K" : " %"}`;
     } else if (t.dataset.rf === "name") {
       d.remotes.find((r) => r.id === this._sel.remote).name = t.value; this._markDirty();
     } else if (t.hasAttribute("data-revdata")) {
@@ -1399,7 +1697,36 @@ class SequencerPanel extends HTMLElement {
     if (t.dataset.wf && t.tagName === "SELECT") { this._node(this._sel.node)[t.dataset.wpath][t.dataset.wf] = t.value; this._markDirty(); return; }
     if (t.dataset.rr === "rank") { this._node(t.closest("[data-rowid]").dataset.rowid).rank = t.value; this._markDirty(); this._render(); return; }
     if (t.dataset.rr) { this._render(); return; }
-    if (t.dataset.zf === "name") { this._render(); return; }
+    if (t.dataset.zf === "name" || t.dataset.sd) { this._render(); return; }
+    if (t.dataset.sforce) {
+      const row = t.closest("[data-which]"); const z = this._curZone(); this._ensureCustom(z);
+      z.custom[row.dataset.which][Number(row.dataset.i)].force = t.checked; this._markDirty(); this._render(); return;
+    }
+    if (t.dataset.mf) {
+      const st = this._openStepObj(); if (!st) return;
+      if (t.dataset.mf === "__after") {
+        const z = this._curZone(); const list = z.extras[this._momWhich(z, st.id)];
+        const idx = list.findIndex((e) => e.step.id === st.id); const [e] = list.splice(idx, 1); e.after = t.value || null; list.push(e);
+      } else {
+        this._setPath(st, t.dataset.mf, t.type === "checkbox" ? t.checked : t.value);
+        if (t.dataset.mf.endsWith("color_mode")) { if (t.value === "temp") st.spec.kelvin ??= 3000; if (t.value === "rgb") st.spec.rgb ??= "#ffffff"; }
+      }
+      this._markDirty(); this._render(); return;
+    }
+    if (t.dataset.momadd && t.value) {
+      const z = this._curZone(); const which = t.dataset.momadd; const st = this._newMoment(t.value);
+      if (z.custom) z.custom[which].push(st);
+      else {
+        const base = zoneSteps(this._draft, { ...z, extras: null }, which);
+        z.extras ||= { start: [], stop: [] }; z.extras[which] ||= [];
+        z.extras[which].push({ after: base.length ? base[base.length - 1].node : null, step: st });
+      }
+      this._openStep = st.id; this._markDirty(); this._render(); return;
+    }
+    if (t.dataset.seqadd && t.value) {
+      const z = this._curZone(); this._ensureCustom(z);
+      z.custom[t.dataset.seqadd].push({ node: t.value, delay: null, force: false }); this._markDirty(); this._render(); return;
+    }
     if (t.dataset.zn) {
       const z = d.zones.find((x) => x.id === this._sel.zone);
       z.nodes = t.checked ? [...new Set([...z.nodes, t.dataset.zn])] : z.nodes.filter((x) => x !== t.dataset.zn);
@@ -1450,7 +1777,7 @@ class SequencerPanel extends HTMLElement {
     const canvas = this._main.querySelector(".canvas");
     if (!canvas) return;
     const cfg = this._config;
-    const set = id ? closure(cfg, [id]) : null;
+    const set = id ? zoneNeeds(cfg, id) : null;
     const z = cfg.zones.find((x) => x.id === id);
     canvas.querySelectorAll(".node").forEach((el) => {
       el.classList.toggle("hl", !!set?.has(el.dataset.id));
@@ -1564,10 +1891,20 @@ class SequencerPanel extends HTMLElement {
         nodes: d.nodes.map((n) => this._cleanNode(n)),
         edges: d.edges.map((e) => ({ from: e.from, to: e.to })),
         zones: d.zones.map((z) => {
-          if (!z.name.trim()) throw new Error("En grupp saknar namn.");
+          if (!z.name.trim()) throw new Error(z.standalone ? "En sekvens saknar namn." : "En grupp saknar namn.");
+          const delayOf = (st) => (st.delay === "" || st.delay == null ? null : Number(st.delay));
+          const step = (st) => {
+            if (!isMoment(st)) return { node: st.node, delay: delayOf(st), force: !!st.force };
+            const label = `${z.name}: ${st.name || "moment"}`;
+            const clean = this._cleanNode({ id: st.id, name: label, entities: st.entities || [], on: { ...st.spec, _dataText: st.spec._dataText }, off: { action: "none" }, wait_on: st.wait });
+            if (momentType(st) === "wait" && !clean.wait_on) throw new Error(`${label}: välj entitet att vänta på.`);
+            return { kind: "action", id: st.id, name: st.name || "", entities: st.entities || [], spec: clean.on, wait: clean.wait_on, delay: delayOf(st) };
+          };
+          const custom = z.custom ? { start: z.custom.start.map(step), stop: z.custom.stop.map(step), base_start: z.custom.base_start || [], base_stop: z.custom.base_stop || [] } : null;
+          const extras = !z.custom && z.extras ? Object.fromEntries(["start", "stop"].map((w) => [w, (z.extras[w] || []).map((e) => ({ after: e.after || null, step: step(e.step) }))])) : null;
           const led = (z.led || "").trim();
           if (led && !ENTITY_RE.test(led)) throw new Error(`${z.name}: ogiltig LED-entitet.`);
-          return { id: z.id, name: z.name.trim(), icon: z.icon || "", color: z.color, nodes: z.nodes, led, led_minutes: Number(z.led_minutes ?? 30) };
+          return { id: z.id, name: z.name.trim(), icon: z.icon || "", color: z.color, nodes: z.standalone ? [] : z.nodes, standalone: !!z.standalone, custom, extras, led, led_minutes: Number(z.led_minutes ?? 30) };
         }),
         remotes: d.remotes.map((r) => {
           if (r.kind === "event" || r.trigger?.platform === "event") {
