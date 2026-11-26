@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.3.1";
+const VERSION = "2.4.0";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -454,6 +454,8 @@ class SequencerPanel extends HTMLElement {
     root.addEventListener("pointerdown", (e) => this._onPointerDown(e));
     root.addEventListener("mouseover", (e) => this._onHover(e));
     root.addEventListener("keydown", (e) => this._onKey(e));
+    root.addEventListener("value-changed", (e) => this._onPicked(e));
+    this._loadPicker();
     this._ro = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
       const m = w > 0 && w < 760;
@@ -503,6 +505,10 @@ class SequencerPanel extends HTMLElement {
       if (this._stateRefs[e] !== st) { this._stateRefs[e] = st; changed = true; }
     }
     if (changed) this._applyLive();
+    if (this._usePicker && this._main && Date.now() - (this._pickerHassT || 0) > 2000) {
+      this._pickerHassT = Date.now();
+      this._main.querySelectorAll("ha-entity-picker[data-ep]").forEach((el) => (el.hass = this._hass));
+    }
   }
 
   _resetDraft() {
@@ -575,6 +581,7 @@ class SequencerPanel extends HTMLElement {
 
     this._main.querySelectorAll(".canvas").forEach((c) => this._drawEdges(c));
     this._fitDiagrams();
+    this._initPickers();
     for (const [dg, l, t] of scrolls) { const el = this._main.querySelector(`.dg-scroll[data-dg="${dg}"]`); if (el) { el.scrollLeft = l; el.scrollTop = t; } }
     if (focus) { const el = this._main.querySelector(focus); if (el) { el.focus(); if (el.setSelectionRange && el.type === "text") { const n = el.value.length; el.setSelectionRange(n, n); } } }
     window.scrollTo(0, winY);
@@ -590,7 +597,7 @@ class SequencerPanel extends HTMLElement {
 
   _focusKey() {
     const el = this.shadowRoot.activeElement;
-    if (!el || !this._main.contains(el)) return null;
+    if (!el || !this._main.contains(el) || el.tagName === "HA-ENTITY-PICKER") return null;
     const attrs = (e) => [...e.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
     const own = attrs(el);
     if (!own) return null;
@@ -955,10 +962,58 @@ class SequencerPanel extends HTMLElement {
       ${cands.map((c, i) => `<div class="cand"><span class="t">${this._candLabel(c)}</span><button class="small" data-act="use-learn" data-i="${i}">${useLabel}</button></div>`).join("")}`;
   }
 
-  _chips(list, ctx) {
+  /** HA's own entity picker (icon, name, area, device) – falls back to a plain search box. */
+  _entityField(attrs, value, { domains = null, placeholder = "Välj entitet…", grow = true } = {}) {
+    if (this._usePicker) {
+      return `<ha-entity-picker data-ep="1" ${attrs} data-value="${esc(value || "")}" ${domains ? `data-domains="${esc(domains.join(","))}"` : ""}
+        data-label="${esc(placeholder)}" style="display:block;${grow ? "flex:1;min-width:220px;" : ""}"></ha-entity-picker>`;
+    }
+    return `<input ${attrs} list="entities" value="${esc(value || "")}" placeholder="${esc(placeholder)}" ${grow ? 'style="flex:1;min-width:180px"' : ""}>`;
+  }
+
+  async _loadPicker() {
+    if (!customElements.get("ha-entity-picker")) {
+      try {
+        // Loading the entities-card editor makes HA define ha-entity-picker.
+        const helpers = await window.loadCardHelpers?.();
+        if (helpers) {
+          const card = await helpers.createCardElement({ type: "entities", entities: [] });
+          await card?.constructor?.getConfigElement?.();
+        }
+      } catch (e) { /* fall back below */ }
+      await Promise.race([customElements.whenDefined("ha-entity-picker"), new Promise((r) => setTimeout(r, 6000))]);
+    }
+    const ok = !!customElements.get("ha-entity-picker");
+    if (ok !== this._usePicker) { this._usePicker = ok; this._render(); }
+  }
+
+  _initPickers() {
+    this._main.querySelectorAll("ha-entity-picker[data-ep]").forEach((el) => {
+      if (el._seqInit) { el.hass = this._hass; return; }
+      el._seqInit = true;
+      el.hass = this._hass;
+      el.value = el.dataset.value || "";
+      el.label = el.dataset.label || "";
+      el.allowCustomEntity = true;
+      if (el.dataset.domains) el.includeDomains = el.dataset.domains.split(",");
+    });
+  }
+
+  _onPicked(ev) {
+    const el = ev.target?.closest?.("ha-entity-picker[data-ep]");
+    if (!el || ev.detail?.value === undefined) return;
+    const v = ev.detail.value || "";
+    if (el._seqLast === v && Date.now() - (el._seqLastT || 0) < 300) return; // de-duplicate nested events
+    el._seqLast = v; el._seqLastT = Date.now();
+    el.value = v;
+    this._onInput({ target: el });
+    this._onChange({ target: el });
+  }
+
+  _chips(list, ctx, domains = null) {
     return `<div class="chips">${(list || []).map((e, i) => `<span class="chip">${esc(this._friendly(e))}
       <button data-act="del-entity" data-ctx="${ctx}" data-i="${i}" title="${esc(e)}">×</button></span>`).join("")}
-      <input class="entity-input" data-ctx="${ctx}" list="entities" placeholder="Lägg till entitet… (sök och tryck Enter)"></div>`;
+      ${this._entityField(`class="entity-input" data-ctx="${ctx}"`, "", { domains, placeholder: "Lägg till entitet…" })}</div>`;
   }
 
   _waitEditor(n, key, title) {
@@ -967,7 +1022,7 @@ class SequencerPanel extends HTMLElement {
     const summary = conds.length ? ` (${conds.length} villkor)` : "";
     return `<details ${conds.length ? "open" : ""}><summary>${title}${summary}</summary>
       ${conds.map((c, i) => `<div class="cond" data-wpath="${key}" data-ci="${i}">
-        <input class="grow" data-cf="entity_id" list="entities" value="${esc(c.entity_id || "")}" placeholder="entitet">
+        ${this._entityField('data-cf="entity_id"', c.entity_id, { placeholder: "Entitet" })}
         <input data-cf="attribute" value="${esc(c.attribute || "")}" placeholder="attribut" style="width:84px">
         <span>=</span><input data-cf="state" value="${esc(c.state || "")}" placeholder="on" style="width:84px">
         <button class="icon" data-act="del-cond" title="Ta bort">✕</button></div>`).join("")}
@@ -1064,7 +1119,7 @@ class SequencerPanel extends HTMLElement {
           ${(IMAGES[n.image] || IMAGES.generic)[1]}<span>${esc(n.name || "?")}${auto ? "<small>automatiskt</small>" : ""}${sh.length ? `<small>delas med ${esc(sh.join(", "))}</small>` : ""}</span></label>`;
       }).join("")}</div>
       <div class="lbl">Status-LED (valfritt)</div>
-      <div class="row"><label class="grow">LED-entitet (light/switch)<input data-zf="led" list="entities" value="${esc(z.led || "")}" placeholder="t.ex. switch.gpio_led_vardagsrum"></label>
+      <div class="row"><label class="grow">LED-entitet (light/switch)${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
         <label>Släck efter (min)<input type="number" min="0" step="1" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div>
       <div class="hint">Blinkar långsamt medan sekvensen körs, lyser fast när allt gick bra (släcks efter angiven tid, 0 = lys tills nästa gång) och blinkar snabbt vid fel tills gruppen körs igen.</div>
       <div class="lbl">Sekvens</div>
@@ -1111,7 +1166,7 @@ class SequencerPanel extends HTMLElement {
       head = `<div class="row"><label class="grow">Namn<input data-zf="name" value="${esc(z.name)}" placeholder="T.ex. Gudstjänst"></label>
           <label>Ikon<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:church"></label></div>
         <div class="swatches" style="margin-bottom:6px">${ZONE_COLORS.map((c) => `<button class="swatch ${z.color === c ? "sel" : ""}" style="background:${c}" data-act="zone-color" data-color="${c}"></button>`).join("")}</div>
-        <details><summary>Status-LED</summary><div class="row"><label class="grow">LED-entitet<input data-zf="led" list="entities" value="${esc(z.led || "")}"></label>
+        <details><summary>Status-LED</summary><div class="row"><label class="grow">LED-entitet${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
           <label>Släck efter (min)<input type="number" min="0" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div></details>`;
     } else {
       head = `<div class="row-between"><h2 style="margin:0">${esc(z.name)}</h2><button class="small" data-act="goto-zone" data-id="${esc(z.id)}">Gruppens utrustning →</button></div>`;
@@ -1192,12 +1247,12 @@ class SequencerPanel extends HTMLElement {
     }
     if (type === "wait") {
       const c = st.wait.conditions[0];
-      body += `<div class="row" style="margin-top:8px"><label class="grow">Entitet<input data-mf="wait.conditions.0.entity_id" list="entities" value="${esc(c.entity_id || "")}"></label>
+      body += `<div class="row" style="margin-top:8px"><label class="grow">Entitet${this._entityField('data-mf="wait.conditions.0.entity_id"', c.entity_id)}</label>
         <label>Attribut<input data-mf="wait.conditions.0.attribute" value="${esc(c.attribute || "")}" style="width:100px"></label>
         <label>= värde<input data-mf="wait.conditions.0.state" value="${esc(c.state || "")}" style="width:100px"></label>
         <label>Max (s)<input type="number" min="1" data-mf="wait.timeout" value="${esc(st.wait.timeout ?? 60)}" style="width:80px"></label></div>`;
     } else if (type !== "pause") {
-      if (type !== "dmx" && type !== "service") body += `<div class="lbl">Entiteter</div>${this._chips(st.entities, "step")}`;
+      if (type !== "dmx" && type !== "service") body += `<div class="lbl">Entiteter</div>${this._chips(st.entities, "step", type === "light" ? ["light"] : null)}`;
       if (type === "service") body += `<label style="margin-top:8px">Tjänst<input data-mf="spec.service" list="services" value="${esc(st.spec.service || "")}" placeholder="t.ex. scene.turn_on"></label>
         <label style="margin-top:8px">Data (JSON)<textarea data-mf="spec._dataText">${esc(st.spec._dataText || "")}</textarea></label>`;
       body += this._actionFields(st, "spec", st.spec.action, st.spec, "data-mf");
@@ -1290,7 +1345,7 @@ class SequencerPanel extends HTMLElement {
       const eid = t?.platform === "state" ? [].concat(t.entity_id)[0] : "";
       const st = this._hass.states[eid];
       const isEvent = eid.startsWith("event.");
-      body = `<label>Entitet<input data-rent list="entities" value="${esc(eid)}" placeholder="t.ex. event.fjarr_knapp_1 eller sensor.fjarr_action"></label>
+      body = `<label>Entitet${this._entityField("data-rent", eid, { placeholder: "Välj knapp, event eller action-sensor" })}</label>
         ${eid && isEvent ? `<label style="margin-top:8px">Händelsetyp<select data-revt><option value="">Alla</option>${(st?.attributes.event_types || []).map((x) => `<option ${r.event_type === x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`
           : eid ? `<label style="margin-top:8px">När läget blir (tomt = varje ändring)<input data-rto value="${esc(t?.to ?? "")}" placeholder="t.ex. on, single, 1_single"></label>` : ""}`;
     } else {
