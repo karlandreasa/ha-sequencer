@@ -20,7 +20,8 @@ from homeassistant.helpers.trigger import (
     async_validate_trigger_config,
 )
 
-from . import graph
+from . import graph, netcontrol
+from .dmx import DmxEngine, parse_channels
 from .const import (
     ALL_ZONES,
     EVENT_SEQUENCER,
@@ -36,6 +37,8 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+ENTITY_STATE_ACTIONS = {"turn_on", "light", "wol"}
 
 EMPTY_CONFIG: dict[str, Any] = {"nodes": [], "edges": [], "zones": [], "remotes": []}
 
@@ -63,6 +66,7 @@ class SequencerManager:
         self._remote_unsubs: list[Callable[[], None]] = []
         self._remote_last: dict[str, float] = {}
         self._started = False
+        self.dmx = DmxEngine(hass)
         self._led_tasks: dict[str, asyncio.Task] = {}  # led entity -> blink/hold task
         self.led_modes: dict[str, str] = {}  # zone id -> slow | fast | on | off
 
@@ -158,7 +162,8 @@ class SequencerManager:
 
     @staticmethod
     def _entity_based(node: dict[str, Any]) -> bool:
-        return bool(node.get("entities")) and (node.get("on") or {}).get("action", "turn_on") == "turn_on"
+        """Running state is read from the entities (switches, lights, a ping sensor for WoL …)."""
+        return bool(node.get("entities")) and (node.get("on") or {}).get("action", "turn_on") in ENTITY_STATE_ACTIONS
 
     def _needs_on(self, node: dict[str, Any]) -> bool:
         if (node.get("on") or {}).get("action", "turn_on") == "none":
@@ -369,23 +374,78 @@ class SequencerManager:
     async def _async_execute(self, node: dict[str, Any], on: bool) -> None:
         spec = node.get("on" if on else "off") or {}
         action = spec.get("action") or ("turn_on" if on else "turn_off")
-        if action == "none":
-            return
         entities = node.get("entities") or []
         data = dict(spec.get("data") or {})
-        if action == "service":
+        wait = 0.0
+
+        if action == "none":
+            return
+        if action == "light" or action == "light_off":
+            lights = [e for e in entities if e.startswith("light.")]
+            if not lights:
+                raise ValueError("inga light-entiteter att dimma")
+            data["entity_id"] = lights
+            transition = float(spec.get("transition") or 0)
+            if transition > 0:
+                data["transition"] = transition
+            if action == "light":
+                if spec.get("brightness") not in (None, ""):
+                    data["brightness_pct"] = max(0, min(100, int(float(spec["brightness"]))))
+                if spec.get("color_mode") == "rgb" and spec.get("rgb"):
+                    hexv = str(spec["rgb"]).lstrip("#")
+                    data["rgb_color"] = [int(hexv[i : i + 2], 16) for i in (0, 2, 4)]
+                elif spec.get("color_mode") == "temp" and spec.get("kelvin"):
+                    data["color_temp_kelvin"] = int(spec["kelvin"])
+            if spec.get("wait"):
+                wait = transition
+            await self._async_call("light", "turn_on" if action == "light" else "turn_off", data)
+        elif action == "wol":
+            await self.hass.async_add_executor_job(
+                netcontrol.send_magic_packet, spec.get("mac", ""), spec.get("broadcast") or None, spec.get("port") or 9
+            )
+        elif action == "rpc_shutdown":
+            await netcontrol.async_ensure_impacket(self.hass)
+            await self.hass.async_add_executor_job(
+                netcontrol.windows_shutdown,
+                spec.get("host", ""),
+                spec.get("username", ""),
+                spec.get("password", ""),
+                spec.get("domain", ""),
+                int(spec.get("timeout") or 0),
+                spec.get("force", True) is not False,
+                bool(spec.get("reboot")),
+            )
+        elif action in ("dmx", "dmx_off"):
+            src = spec if action == "dmx" else (node.get("on") or {})
+            if src.get("action") != "dmx":
+                raise ValueError("DMX-släckning kräver att påslaget är DMX")
+            values = parse_channels(src.get("channels"))
+            if action == "dmx_off":
+                values = {ch: 0 for ch in values}
+            fade = float(spec.get("fade") or 0)
+            await self.dmx.async_set(src.get("protocol") or "artnet", src.get("host") or "", int(src.get("universe") or 0), values, fade)
+            if spec.get("wait"):
+                wait = fade
+        elif action == "service":
             service = spec.get("service") or ""
             if "." not in service:
                 raise ValueError(f"ogiltig tjänst '{service}'")
+            if entities and "entity_id" not in data:
+                data["entity_id"] = entities
             domain, service_name = service.split(".", 1)
-        else:
+            await self._async_call(domain, service_name, data)
+        else:  # turn_on / turn_off
             if not entities:
                 return
-            domain, service_name = "homeassistant", action
-        if entities and "entity_id" not in data:
-            data["entity_id"] = entities
+            data.setdefault("entity_id", entities)
+            await self._async_call("homeassistant", action, data)
+
+        if wait > 0:
+            await asyncio.sleep(wait)
+
+    async def _async_call(self, domain: str, service: str, data: dict[str, Any]) -> None:
         async with asyncio.timeout(SERVICE_TIMEOUT):
-            await self.hass.services.async_call(domain, service_name, data, blocking=True)
+            await self.hass.services.async_call(domain, service, data, blocking=True)
 
     async def async_test_node(self, node: dict[str, Any], on: bool) -> None:
         await self._async_execute(node, on)
@@ -399,6 +459,7 @@ class SequencerManager:
         for task in self._led_tasks.values():
             task.cancel()
         self._led_tasks.clear()
+        await self.dmx.async_stop()
         for key in list(self._tasks):
             await self._cancel(key)
         self._listeners.clear()

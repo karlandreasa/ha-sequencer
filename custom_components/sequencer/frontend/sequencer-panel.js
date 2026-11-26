@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -25,6 +25,14 @@ const IMAGES = {
   projector: ["Projektor", IMG(`<rect x="6" y="16" width="52" height="20" rx="4"/><circle cx="20" cy="26" r="6"/><circle cx="20" cy="26" r="2"/><path d="M34 22h16M34 27h16M34 32h10M12 36v4M52 36v4"/>`)],
   network: ["Nätverk", IMG(`<rect x="3" y="16" width="58" height="16" rx="2"/><path d="M8 21h5v6H8zM16 21h5v6h-5zM24 21h5v6h-5zM32 21h5v6h-5zM40 21h5v6h-5z"/><circle cx="54" cy="24" r="1.8" fill="currentColor"/>`)],
   light: ["Ljus", IMG(`<path d="M24 6h16l6 18H18z"/><path d="M32 24v12M24 42h16"/>`)],
+  console: ["Ljusbord", IMG(`<rect x="18" y="4" width="28" height="14" rx="1.5"/><path d="M24 14l4-5 4 3 4-4 4 6"/><path d="M3 42l7-18h44l7 18z"/><path d="M15 38v-9M22 38v-9M29 38v-9M36 38v-9M43 38v-9M50 38v-9"/><path d="M13 33h4M20 31h4M27 35h4M34 32h4M41 30h4M48 34h4"/>`)],
+  spot: ["Strålkastare", IMG(`<rect x="10" y="13" width="26" height="18" rx="3"/><path d="M36 11l12-5v32l-12-5z"/><path d="M23 31v7M15 42h16"/><path d="M53 14l6-3M54 22h7M53 30l6 3"/>`)],
+  par: ["PAR-lampa", IMG(`<path d="M10 14h22l8 10-8 10H10z"/><ellipse cx="42" cy="24" rx="4" ry="12"/><path d="M18 34v6M12 42h14M10 14V8h22v6"/>`)],
+  movinghead: ["Moving head", IMG(`<rect x="16" y="38" width="32" height="7" rx="2"/><path d="M20 38V20a4 4 0 0 1 4-4M44 38V20a4 4 0 0 0-4-4"/><circle cx="32" cy="21" r="10"/><circle cx="32" cy="21" r="4"/>`)],
+  dimmer: ["Dimmerrack", IMG(`<rect x="3" y="12" width="58" height="24" rx="2"/><circle cx="13" cy="24" r="4.5"/><circle cx="26" cy="24" r="4.5"/><circle cx="39" cy="24" r="4.5"/><path d="M13 24l2.5-3M26 24l2.5-3M39 24l2.5-3"/><path d="M50 18v12M55 18v12"/>`)],
+  dmxnode: ["DMX-nod", IMG(`<rect x="6" y="12" width="52" height="24" rx="3"/><circle cx="22" cy="24" r="7"/><circle cx="42" cy="24" r="7"/><path d="M19.5 22h.01M24.5 22h.01M22 27h.01M39.5 22h.01M44.5 22h.01M42 27h.01"/><path d="M12 8l6 4M52 8l-6 4"/>`)],
+  cross: ["Kors", IMG(`<path d="M28 3h8v11h11v8H36v23h-8V22H17v-8h11z"/>`)],
+  pc: ["Dator", IMG(`<rect x="4" y="7" width="36" height="25" rx="2"/><path d="M15 41h14M22 32v9"/><rect x="46" y="7" width="14" height="35" rx="2"/><path d="M50 13h6M50 18h6"/><circle cx="53" cy="35" r="2"/>`)],
   generic: ["Övrigt", IMG(`<rect x="10" y="10" width="44" height="28" rx="4"/><path d="M32 16v8"/><path d="M26 19.5a8 8 0 1 0 12 0"/>`)],
 };
 
@@ -96,7 +104,8 @@ function wouldCycle(cfg, from, to) {
 }
 function guessImage(c) {
   const t = `${c.entity_id} ${c.name || ""}`.toLowerCase();
-  const rules = [[/mixer|mixerbord/, "mixer"], [/slutsteg|amp|förstärk|forstark/, "amp"], [/dsp|processor/, "dsp"], [/receiver|reciever/, "receiver"],
+  const rules = [[/ljusbord|console|grandma|chamsys|eos/, "console"], [/kors|cross/, "cross"], [/moving/, "movinghead"], [/strålkast|stralkast|spot|fresnel|profil/, "spot"],
+    [/\bpar\b|par-|par_/, "par"], [/dimmer/, "dimmer"], [/dmx|artnet|art-net|sacn/, "dmxnode"], [/dator|pc\b|windows|desktop|computer|_pc/, "pc"], [/mixer|mixerbord/, "mixer"], [/slutsteg|amp|förstärk|forstark/, "amp"], [/dsp|processor/, "dsp"], [/receiver|reciever/, "receiver"],
     [/sub/, "sub"], [/tak|ceiling/, "ceiling"], [/högtal|hogtal|speaker/, "speaker"], [/projekt/, "projector"], [/tv|skärm|display|monitor/, "tv"],
     [/mic|mikrofon/, "mic"], [/switch|nätverk|router|poe/, "network"], [/stream|sonos|spelare|player|chromecast|apple/, "streamer"],
     [/uttag|plug|ström|power|socket|grenuttag/, "power"]];
@@ -105,7 +114,22 @@ function guessImage(c) {
   if (c.domain === "media_player") return "streamer";
   return "generic";
 }
-const entityBased = (n) => (n.entities || []).length > 0 && ((n.on || {}).action || "turn_on") === "turn_on";
+const ENTITY_STATE_ACTIONS = ["turn_on", "light", "wol"];
+const entityBased = (n) => (n.entities || []).length > 0 && ENTITY_STATE_ACTIONS.includes((n.on || {}).action || "turn_on");
+const MAC_RE = /^([0-9a-f]{2}[:-]?){5}[0-9a-f]{2}$/i;
+function parseChannels(text) {
+  const out = {};
+  for (let part of String(text || "").split(/[,;\n]+/)) {
+    part = part.trim(); if (!part) continue;
+    const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?\s*[=:]\s*(\d+(?:[.,]\d+)?)\s*(%)?$/);
+    if (!m) throw new Error(`Kan inte tolka "${part}" – skriv t.ex. 1=255, 2-4=50%`);
+    const a = +m[1], b = +(m[2] || m[1]); let v = parseFloat(m[3].replace(",", ".")); if (m[4]) v = v * 255 / 100;
+    if (!(a >= 1 && a <= b && b <= 512)) throw new Error(`Kanal utanför 1–512 i "${part}"`);
+    if (!(v >= 0 && v <= 255)) throw new Error(`Värde utanför 0–255 i "${part}"`);
+    for (let c = a; c <= b; c++) out[c] = Math.round(v);
+  }
+  return out;
+}
 
 /* ------------------------------------------------------------------- styles */
 const STYLE = `
@@ -212,7 +236,7 @@ input[type=checkbox], input[type=radio] { width:auto; }
 .side-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-size:16px; }
 .tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
 
-.img-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.img-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px; }
 .img-opt { padding:4px; display:flex; flex-direction:column; align-items:center; font-size:10px; gap:2px; color:var(--secondary-text-color); }
 .img-opt svg { width:40px; height:30px; }
 .img-opt.sel { border-color:var(--primary-color); color:var(--primary-color); background:color-mix(in srgb, var(--primary-color) 10%, transparent); }
@@ -276,7 +300,7 @@ table.rules input[type=number] { width:76px; }
 :host([mobile]) .zone-grid { grid-template-columns:1fr; }
 :host([mobile]) .zone-card .btns button { flex:1; }
 :host([mobile]) .tools .hint { display:none; }
-:host([mobile]) .img-grid { grid-template-columns:repeat(4,1fr); }
+:host([mobile]) .img-grid { grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); }
 :host([mobile]) .dg-scroll { max-height:60vh; }
 :host([mobile]) .savebar { bottom:78px; }
 :host([mobile][sheet]) .savebar { bottom:14px; }
@@ -456,6 +480,14 @@ class SequencerPanel extends HTMLElement {
   /* ------------------------------------------------------------- render */
   _render() {
     if (!this._main) return;
+    // Replacing innerHTML blurs the focused input, which can fire "change" and re-enter here.
+    if (this._inRender) { this._renderAgain = true; return; }
+    this._inRender = true;
+    try { this._doRender(); } finally { this._inRender = false; }
+    if (this._renderAgain) { this._renderAgain = false; queueMicrotask(() => this._render()); }
+  }
+
+  _doRender() {
     const tabs = [["control", "Styrning", "Styrning", "mdi:play-circle-outline"], ["flow", "Flödesschema", "Schema", "mdi:sitemap-outline"],
       ["rules", "Regler", "Regler", "mdi:format-list-checks"], ["zones", "Grupper", "Grupper", "mdi:speaker-multiple"], ["remotes", "Fjärrkontroller", "Fjärrar", "mdi:remote"]];
     this.shadowRoot.getElementById("tabs").innerHTML = tabs
@@ -609,7 +641,9 @@ class SequencerPanel extends HTMLElement {
       const img = IMAGES[n.image] || IMAGES.generic;
       const one = (n.entities || []).length === 1 ? (this._friendly(n.entities[0]) === n.name ? n.entities[0] : this._friendly(n.entities[0])) : "";
       const sub = (n.entities || []).length ? (one || `${n.entities.length} entiteter`)
-        : (n.on?.action === "service" ? n.on.service : "endast i schemat");
+        : n.on?.action === "service" ? n.on.service
+        : n.on?.action === "dmx" ? `DMX ${n.on.protocol === "sacn" ? "sACN" : "Art-Net"} U${n.on.universe ?? 0}${n.on.host ? " · " + n.on.host : ""}`
+        : n.on?.action === "wol" ? "Wake on LAN" : "endast i schemat";
       const cls = ["node", this._sel.node === n.id && editable ? "sel" : "", hlSet?.has(n.id) ? "hl" : "", dimOthers && hlSet && !hlSet.has(n.id) ? "dim" : ""].join(" ");
       return `<div class="${cls}" data-id="${esc(n.id)}" style="left:${n.x}px;top:${n.y}px;--hlc:${hlColor}">
         ${n.rank && n.rank !== "normal" ? `<span class="rank">${n.rank === "first" ? "① först" : "sist ⑨"}</span>` : ""}
@@ -732,11 +766,13 @@ class SequencerPanel extends HTMLElement {
       const s = n[k] || {};
       const def = k === "on" ? "turn_on" : "turn_off";
       const cur = s.action || def;
-      const opts = k === "on" ? [["turn_on", "Slå på entiteterna"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]]
-        : [["turn_off", "Stäng av entiteterna"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]];
+      const opts = k === "on"
+        ? [["turn_on", "Slå på entiteterna"], ["light", "Tänd / dimma ljus"], ["wol", "Wake on LAN (starta dator)"], ["dmx", "DMX (Art-Net / sACN)"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]]
+        : [["turn_off", "Stäng av entiteterna"], ["light_off", "Släck / dimma ner ljus"], ["rpc_shutdown", "Stäng av Windows-dator (RPC)"], ["dmx_off", "DMX – släck samma kanaler"], ["dmx", "DMX – egna värden"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]];
       return `<div class="row"><label class="grow">${actSel(`${k}.action`, opts, cur)}</label>
         ${cur === "service" ? `<label class="grow"><input data-nf="${k}.service" list="services" value="${esc(s.service || "")}" placeholder="t.ex. media_player.select_source"></label>` : ""}</div>
-        ${cur !== "none" ? `<details ${s._dataText ? "open" : ""}><summary>Extra data (JSON)</summary>
+        ${this._actionFields(n, k, cur, s)}
+        ${["turn_on", "turn_off", "service", "light"].includes(cur) ? `<details ${s._dataText ? "open" : ""}><summary>Extra data (JSON)</summary>
           <textarea data-nf="${k}._dataText" placeholder='{"source": "TV"}'>${esc(s._dataText || "")}</textarea></details>` : ""}`;
     };
     return `<div class="side-head"><b>Utrustning</b><button class="icon" data-act="close-node" title="Stäng">✕</button></div>
@@ -761,6 +797,60 @@ class SequencerPanel extends HTMLElement {
       <div class="lbl">Testa</div>
       <div class="btns" style="margin-top:0"><button class="small" data-act="test-node" data-on="1">Slå på nu</button><button class="small" data-act="test-node" data-on="0">Stäng av nu</button></div>
       <div class="btns"><button class="danger small" data-act="del-node">Ta bort utrustning</button></div>`;
+  }
+
+  _actionFields(n, k, cur, s) {
+    const num = (f, label, v, attrs = "") => `<label>${label}<input type="number" data-nf="${k}.${f}" value="${esc(v ?? "")}" ${attrs} style="width:100px"></label>`;
+    const txt = (f, label, v, ph = "", type = "text") => `<label class="grow">${label}<input type="${type}" data-nf="${k}.${f}" value="${esc(v ?? "")}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
+    const chk = (f, label, v) => `<label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--primary-text-color)"><input type="checkbox" data-nf="${k}.${f}" ${v ? "checked" : ""}>${label}</label>`;
+    const presets = (f, list) => `<div class="chips" style="margin:2px 0 6px">${list.map(([v, l]) => `<button class="small ${Number(s[f] ?? 0) === v ? "primary" : ""}" data-act="preset" data-path="${k}.${f}" data-v="${v}">${l}</button>`).join("")}</div>`;
+    const fadeList = [[0, "Direkt"], [1, "Snabbt 1 s"], [3, "Mjukt 3 s"], [10, "Långsamt 10 s"], [30, "30 s"]];
+    if (cur === "light") {
+      const lights = (n.entities || []).filter((e) => e.startsWith("light."));
+      return `${lights.length ? "" : `<div class="err" style="margin-bottom:6px">Lägg till minst en light-entitet ovan.</div>`}
+        <label>Ljusstyrka: <b data-show="${k}.brightness">${esc(s.brightness ?? 100)} %</b><input type="range" min="0" max="100" step="1" data-nf="${k}.brightness" value="${esc(s.brightness ?? 100)}"></label>
+        <div class="lbl" style="margin:8px 0 2px">Övergång</div>${presets("transition", fadeList)}
+        <div class="row">${num("transition", "Sekunder", s.transition ?? 0, 'min="0" step="0.5"')}</div>
+        <div class="row"><label>Färg<select data-nf="${k}.color_mode">${[["none", "Behåll"], ["rgb", "Välj färg"], ["temp", "Färgtemperatur"]].map(([v, l]) => `<option value="${v}" ${(s.color_mode || "none") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          ${s.color_mode === "rgb" ? `<label>Färg<input type="color" data-nf="${k}.rgb" value="${esc(s.rgb || "#ffffff")}" style="width:64px;height:38px;padding:2px"></label>` : ""}
+          ${s.color_mode === "temp" ? `<label class="grow">Temperatur: <b data-show="${k}.kelvin">${esc(s.kelvin || 3000)} K</b><input type="range" min="2000" max="6500" step="100" data-nf="${k}.kelvin" value="${esc(s.kelvin || 3000)}"></label>` : ""}</div>
+        ${chk("wait", "Vänta tills övergången är klar innan nästa steg", s.wait)}`;
+    }
+    if (cur === "light_off") {
+      return `<div class="lbl" style="margin:8px 0 2px">Övergång</div>${presets("transition", fadeList)}
+        <div class="row">${num("transition", "Sekunder", s.transition ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills övergången är klar", s.wait)}`;
+    }
+    if (cur === "wol") {
+      return `<div class="row">${txt("mac", "MAC-adress", s.mac, "AA:BB:CC:DD:EE:FF")}</div>
+        <div class="row">${txt("broadcast", "Broadcast-adress (valfritt)", s.broadcast, "255.255.255.255")}${num("port", "Port", s.port ?? 9, 'min="1" max="65535"')}</div>
+        <div class="hint">Tips: lägg till en ping-sensor (binary_sensor) för datorn som entitet ovan. Då visas om den är igång, och du kan använda "vänta tills" för nästa steg.</div>`;
+    }
+    if (cur === "rpc_shutdown") {
+      return `<div class="row">${txt("host", "Dator (IP eller namn)", s.host, "192.168.1.50")}</div>
+        <div class="row">${txt("username", "Användare", s.username, "admin")}${txt("password", "Lösenord", s.password, "", "password")}</div>
+        <div class="row">${txt("domain", "Domän (valfritt)", s.domain, "")}${num("timeout", "Fördröjning (s)", s.timeout ?? 0, 'min="0" max="600"')}</div>
+        ${chk("force", "Tvinga stängning av öppna program", s.force !== false)} ${chk("reboot", "Starta om i stället för att stänga av", s.reboot)}
+        <details><summary>Så förbereder du Windows-datorn</summary><div class="hint" style="line-height:1.6">
+          1. Kontot ska vara administratör på datorn.<br>
+          2. Tillåt <i>Fil- och skrivardelning</i> i Windows-brandväggen (port 445).<br>
+          3. För ett <b>lokalt</b> konto (inte domän/Microsoft-konto): kör som admin<br><code>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f</code><br>
+          Samma krav som för <code>shutdown /s /m \\dator</code>. Första gången installeras ett hjälpbibliotek i HA (kan ta en minut).
+          Lösenordet sparas i HA:s lagring.</div></details>`;
+    }
+    if (cur === "dmx") {
+      return `<div class="row"><label>Protokoll<select data-nf="${k}.protocol">${[["artnet", "Art-Net"], ["sacn", "sACN (E1.31)"]].map(([v, l]) => `<option value="${v}" ${(s.protocol || "artnet") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          ${num("universe", "Universum", s.universe ?? (s.protocol === "sacn" ? 1 : 0), 'min="0" max="63999"')}</div>
+        <div class="row">${txt("host", "IP till DMX-noden (tomt = broadcast/multicast)", s.host, s.protocol === "sacn" ? "multicast" : "255.255.255.255")}</div>
+        <label>Kanaler och värden<textarea data-nf="${k}.channels" placeholder="1=255, 2-4=50%, 10=128" style="font-family:monospace">${esc(s.channels || "")}</textarea></label>
+        <div class="hint">Värde 0–255 eller procent. Intervall med bindestreck, t.ex. <code>1-12=100%</code>.</div>
+        <div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
+        <div class="row">${num("fade", "Sekunder", s.fade ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills faden är klar", s.wait)}`;
+    }
+    if (cur === "dmx_off") {
+      return `<div class="hint">Släcker kanalerna som påslaget tänder.</div><div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
+        <div class="row">${num("fade", "Sekunder", s.fade ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills faden är klar", s.wait)}`;
+    }
+    return "";
   }
 
   _linkEditor(n) {
@@ -1158,6 +1248,7 @@ class SequencerPanel extends HTMLElement {
       }
       case "test-node": {
         const n = this._node(this._sel.node);
+        if (btn.dataset.on !== "1" && n.off?.action === "rpc_shutdown" && !confirm(`Stänga av datorn ${n.off.host || ""} nu?`)) return;
         try { await this._hass.callWS({ type: "sequencer/node/test", node: this._cleanNode(n), on: btn.dataset.on === "1" }); }
         catch (e) { this._toast(`Test misslyckades: ${e.message || e}`, true); }
         return;
@@ -1197,6 +1288,7 @@ class SequencerPanel extends HTMLElement {
         if (this._learn?.target === btn.dataset.target) this._stopLearn(); else this._startLearn(btn.dataset.target);
         this._render(); return;
       case "use-learn": this._useLearned(this._learn.cands[Number(btn.dataset.i)]); return;
+      case "preset": { const n = this._node(this._sel.node); this._setPath(n, btn.dataset.path, Number(btn.dataset.v)); this._markDirty(); this._render(); return; }
       case "zoom": {
         const sc = this._main.querySelector(".dg-scroll.zoomable .canvas");
         const cur = Number(sc?.dataset.k) || 1;
@@ -1257,8 +1349,11 @@ class SequencerPanel extends HTMLElement {
     if (!d) return;
     if (t.dataset.nf) {
       const n = this._node(this._sel.node); if (!n) return;
-      const num = ["delay_on", "delay_off"].includes(t.dataset.nf);
-      this._setPath(n, t.dataset.nf, num ? Number(t.value || 0) : t.value);
+      if (t.type === "checkbox" || t.type === "color") return; // handled on change
+      const num = ["delay_on", "delay_off"].includes(t.dataset.nf) || t.type === "number" || t.type === "range";
+      this._setPath(n, t.dataset.nf, num ? (t.value === "" ? "" : Number(t.value)) : t.value);
+      const show = this._main.querySelector(`[data-show="${t.dataset.nf}"]`);
+      if (show) show.textContent = `${t.value}${t.dataset.nf.endsWith("kelvin") ? " K" : " %"}`;
       if (t.dataset.nf === "name") { const el = this._main.querySelector(`.node[data-id="${CSS.escape(n.id)}"] .nname`); if (el) el.textContent = t.value || IMAGES[n.image]?.[0]; }
       this._markDirty();
     } else if (t.dataset.cf) {
@@ -1283,8 +1378,16 @@ class SequencerPanel extends HTMLElement {
     const t = ev.target; const d = this._draft;
     if (!d) return;
     if (t.classList.contains("entity-input")) { if (this._hass.states[t.value.trim()]) this._addEntity(t); return; }
+    if (t.dataset.nf && (t.type === "checkbox" || t.type === "color")) {
+      const n = this._node(this._sel.node); this._setPath(n, t.dataset.nf, t.type === "checkbox" ? t.checked : t.value); this._markDirty(); return;
+    }
     if (t.dataset.nf && (t.tagName === "SELECT" || t.dataset.nf === "name")) {
-      const n = this._node(this._sel.node); this._setPath(n, t.dataset.nf, t.value); this._markDirty(); this._render(); return;
+      const n = this._node(this._sel.node); this._setPath(n, t.dataset.nf, t.value);
+      if (t.dataset.nf === "name" && (!n.image || n.image === "generic")) n.image = guessImage({ entity_id: n.entities[0] || "", name: n.name, domain: (n.entities[0] || "").split(".")[0] });
+      if (t.dataset.nf.endsWith("color_mode")) { const sp = n[t.dataset.nf.split(".")[0]]; if (t.value === "temp") sp.kelvin ??= 3000; if (t.value === "rgb") sp.rgb ??= "#ffffff"; }
+      if (t.dataset.nf === "on.action") this._applyActionDefaults(n, t.value);
+      if (t.dataset.nf === "off.action" && t.value === "rpc_shutdown") n.off.force ??= true;
+      this._markDirty(); this._render(); return;
     }
     if (t.dataset.cf === "entity_id") { this._render(); return; }
     if (t.dataset.link && t.value) {
@@ -1326,6 +1429,14 @@ class SequencerPanel extends HTMLElement {
       r.kind = "event"; r.trigger = { platform: "event", event_type: t.value.trim(), event_data: r.trigger?.event_data || {} };
       this._markDirty(); this._render(); return;
     }
+  }
+
+  _applyActionDefaults(n, action) {
+    const on = n.on; const off = (n.off ||= {});
+    const offDefault = !off.action || off.action === "turn_off";
+    if (action === "light") { on.brightness ??= 100; on.transition ??= 2; on.color_mode ??= "none"; if (offDefault) { off.action = "light_off"; off.transition ??= 2; } if (n.image === "generic") n.image = "spot"; }
+    if (action === "wol") { on.port ??= 9; if (offDefault) { off.action = "rpc_shutdown"; off.force ??= true; off.timeout ??= 0; } if (n.image === "generic") n.image = "pc"; }
+    if (action === "dmx") { on.protocol ??= "artnet"; on.universe ??= 0; on.fade ??= 2; if (offDefault) { off.action = "dmx_off"; off.fade ??= 2; } if (n.image === "generic") n.image = "dmxnode"; }
   }
 
   _onHover(ev) {
@@ -1412,9 +1523,22 @@ class SequencerPanel extends HTMLElement {
   _cleanNode(n) {
     const label = n.name || "Utrustning";
     const spec = (s, def) => {
-      const action = s?.action || def;
+      s = s || {};
+      const action = s.action || def;
       if (action === "service" && !ENTITY_RE.test(s.service || "")) throw new Error(`${label}: ange tjänst som domän.tjänst.`);
-      return { action, service: action === "service" ? s.service : "", data: action === "none" ? {} : this._parseData(s?._dataText, label) };
+      const withData = ["turn_on", "turn_off", "service", "light"].includes(action);
+      const out = { action, service: action === "service" ? s.service : "", data: withData ? this._parseData(s._dataText, label) : {} };
+      const pick = (keys) => { for (const k of keys) if (s[k] !== undefined && s[k] !== "") out[k] = s[k]; };
+      if (action === "light") pick(["brightness", "transition", "color_mode", "rgb", "kelvin", "wait"]);
+      if (action === "light_off") pick(["transition", "wait"]);
+      if (action === "wol") { if (!MAC_RE.test(s.mac || "")) throw new Error(`${label}: ogiltig MAC-adress.`); pick(["mac", "broadcast", "port"]); }
+      if (action === "rpc_shutdown") { if (!s.host || !s.username) throw new Error(`${label}: ange dator och användare för Windows-avstängning.`); pick(["host", "username", "password", "domain", "timeout", "force", "reboot"]); }
+      if (action === "dmx") {
+        try { if (!Object.keys(parseChannels(s.channels)).length) throw new Error("ange minst en kanal"); } catch (e) { throw new Error(`${label} (DMX): ${e.message}`); }
+        pick(["protocol", "host", "universe", "channels", "fade", "wait"]);
+      }
+      if (action === "dmx_off") pick(["fade", "wait"]);
+      return out;
     };
     const wait = (w) => {
       if (!w || !w.conditions?.length) return null;

@@ -14,7 +14,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later
 
-from . import graph
+from . import graph, netcontrol
+from .dmx import parse_channels
 from .const import ALL_ZONES, DOMAIN, NODE_OFF_ACTIONS, NODE_ON_ACTIONS, RANKS, ZONE_ACTIONS
 from .manager import SequencerManager
 
@@ -25,8 +26,22 @@ _delay = vol.All(vol.Coerce(float), vol.Range(min=0, max=3600))
 
 def _action_spec(actions: list[str]):
     def validate(value: dict[str, Any]) -> dict[str, Any]:
-        if value.get("action") == "service":
+        action = value.get("action")
+        if action == "service":
             cv.service(value.get("service") or "")
+        elif action == "wol":
+            try:
+                netcontrol.normalize_mac(value.get("mac", ""))
+            except ValueError as err:
+                raise vol.Invalid(str(err)) from err
+        elif action == "rpc_shutdown":
+            if not value.get("host") or not value.get("username"):
+                raise vol.Invalid("Windows-avstängning kräver värd och användarnamn")
+        elif action == "dmx":
+            try:
+                parse_channels(value.get("channels"))
+            except ValueError as err:
+                raise vol.Invalid(str(err)) from err
         return value
 
     return vol.All(
@@ -36,7 +51,7 @@ def _action_spec(actions: list[str]):
                 vol.Optional("service", default=""): vol.Any(None, cv.string),
                 vol.Optional("data", default={}): dict,
             },
-            extra=vol.REMOVE_EXTRA,
+            extra=vol.ALLOW_EXTRA,
         ),
         validate,
     )

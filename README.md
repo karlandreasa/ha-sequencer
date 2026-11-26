@@ -39,6 +39,21 @@ Om Vardagsrum och Kök delar samma mixer gäller följande:
 - **Prioritet:** *Alltid först* betyder att enheten startas före allt annat i samma körning och stängs av sist. *Alltid sist* betyder tvärtom. Prioritet påverkar bara ordningen. Den gör inte att enheten följer med i en grupp, det gör pilarna och gruppvalet.
 - **Testa:** knappar för att slå på eller stänga av en enhet direkt.
 
+## Typer av utrustning
+
+Varje utrustning har ett *påslag* och en *avstängning*:
+
+| Åtgärd | Används till |
+|---|---|
+| **Slå på / Stäng av** | Switchar, uttag, mediaspelare och liknande. |
+| **Tänd / dimma ljus** | Ljusstyrka, övergång (direkt, snabbt, mjukt, långsamt eller egen tid) och färg eller färgtemperatur. Gäller light-entiteter. Du kan välja att vänta tills övergången är klar innan nästa steg. |
+| **Wake on LAN** | Startar en dator med MAC-adress och eventuell broadcast-adress. Lägg gärna till en ping-sensor som entitet, så syns status och du kan vänta på att datorn är uppe. |
+| **Stäng av Windows-dator (RPC)** | Samma protokoll som `shutdown /s /m \\dator`. Kräver ett administratörskonto, att *Fil- och skrivardelning* är tillåten i brandväggen och, för lokala konton, `LocalAccountTokenFilterPolicy=1`. Ett hjälpbibliotek (impacket) installeras automatiskt första gången funktionen används. |
+| **DMX** | Art-Net eller sACN (E1.31) direkt till en DMX-nod i nätverket. Kanaler skrivs som `1=255, 2-4=50%`, och du väljer fade-tid. Avstängningen *släck samma kanaler* fadar ner det som tändes. Om du redan har DMX-lampor som light-entiteter i HA kan du använda *Tänd / dimma ljus* i stället. |
+| **Tjänst** | Valfri HA-tjänst med JSON-data. |
+
+Det finns bilder för bland annat mixer, slutsteg, DSP, högtalare, ljusbord, strålkastare, PAR-lampa, moving head, dimmerrack, DMX-nod, kors, dator och projektor.
+
 ## Status-LED per grupp
 
 Välj en light- eller switch-entitet, t.ex. en GPIO-LED:

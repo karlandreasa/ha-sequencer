@@ -1,7 +1,7 @@
 """Constants for the Sequencer integration."""
 
 DOMAIN = "sequencer"
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 STORAGE_KEY_V1 = f"{DOMAIN}.sequences"
 STORAGE_KEY_CONFIG = f"{DOMAIN}.config"
@@ -29,8 +29,8 @@ ALL_ZONES = "__all__"
 # Entity states that count as "off" when deciding whether equipment is running.
 OFF_STATES = {"off", "unavailable", "unknown", "standby"}
 
-NODE_ON_ACTIONS = ["turn_on", "service", "none"]
-NODE_OFF_ACTIONS = ["turn_off", "service", "none"]
+NODE_ON_ACTIONS = ["turn_on", "light", "wol", "dmx", "service", "none"]
+NODE_OFF_ACTIONS = ["turn_off", "light_off", "rpc_shutdown", "dmx_off", "dmx", "service", "none"]
 ZONE_ACTIONS = ["start", "stop", "toggle"]
 RANKS = ["first", "normal", "last"]
 RANK_ORDER = {"first": 0, "normal": 1, "last": 2}
