@@ -1,9 +1,11 @@
 """Constants for the Sequencer integration."""
 
 DOMAIN = "sequencer"
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 
-STORAGE_KEY = f"{DOMAIN}.sequences"
+STORAGE_KEY_V1 = f"{DOMAIN}.sequences"
+STORAGE_KEY_CONFIG = f"{DOMAIN}.config"
+STORAGE_KEY_STATE = f"{DOMAIN}.state"
 STORAGE_VERSION = 1
 
 PANEL_URL_PATH = "sequencer"
@@ -12,27 +14,23 @@ PANEL_ICON = "mdi:playlist-play"
 PANEL_COMPONENT = "sequencer-panel"
 STATIC_URL = "/sequencer_static"
 
-SIGNAL_SEQUENCE_ADDED = f"{DOMAIN}_sequence_added"
-SIGNAL_SEQUENCE_REMOVED = f"{DOMAIN}_sequence_removed"
+SIGNAL_ZONE_ADDED = f"{DOMAIN}_zone_added"
+SIGNAL_ZONE_REMOVED = f"{DOMAIN}_zone_removed"
 
 EVENT_SEQUENCER = f"{DOMAIN}_event"
 
 # Max time a single service call may take before the step is marked as failed.
 SERVICE_TIMEOUT = 30
+# Ignore repeated presses of the same remote button within this time (seconds).
+REMOTE_DEBOUNCE = 0.8
 
-STATE_OFF = "off"
-STATE_ON = "on"
-STATE_STARTING = "starting"
-STATE_STOPPING = "stopping"
+ALL_ZONES = "__all__"
 
-DIRECTION_START = "start"
-DIRECTION_STOP = "stop"
+# Entity states that count as "off" when deciding whether equipment is running.
+OFF_STATES = {"off", "unavailable", "unknown", "standby"}
 
-ACTION_TURN_ON = "turn_on"
-ACTION_TURN_OFF = "turn_off"
-ACTION_TOGGLE = "toggle"
-ACTION_SERVICE = "service"
-ACTIONS = [ACTION_TURN_ON, ACTION_TURN_OFF, ACTION_TOGGLE, ACTION_SERVICE]
-
-STOP_MODE_REVERSE = "reverse"
-STOP_MODE_CUSTOM = "custom"
+NODE_ON_ACTIONS = ["turn_on", "service", "none"]
+NODE_OFF_ACTIONS = ["turn_off", "service", "none"]
+ZONE_ACTIONS = ["start", "stop", "toggle"]
+RANKS = ["first", "normal", "last"]
+RANK_ORDER = {"first": 0, "normal": 1, "last": 2}

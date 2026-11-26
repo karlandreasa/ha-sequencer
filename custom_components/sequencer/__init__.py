@@ -1,4 +1,4 @@
-"""Sequencer – start and stop groups of entities in sequence, with a sidebar panel."""
+"""Sequencer – start and stop audio systems (or anything) in sequence, with a sidebar panel."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.start import async_at_started
 
 from . import websocket
 from .const import (
@@ -20,23 +21,28 @@ from .const import (
     STATIC_URL,
     VERSION,
 )
-from .manager import SequenceManager
+from .manager import SequencerManager
 
 PLATFORMS = [Platform.SWITCH]
 
-type SequencerConfigEntry = ConfigEntry[SequenceManager]
+type SequencerConfigEntry = ConfigEntry[SequencerManager]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SequencerConfigEntry) -> bool:
-    manager = SequenceManager(hass)
+    manager = SequencerManager(hass)
     await manager.async_load()
     entry.runtime_data = manager
     hass.data[DOMAIN] = manager
 
     await _async_register_panel(hass)
     websocket.async_register(hass)
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Remote triggers (e.g. ZHA/Z2M device triggers) need their integrations loaded first.
+    async def _start_remotes(_hass: HomeAssistant) -> None:
+        await manager.async_setup_remotes()
+
+    entry.async_on_unload(async_at_started(hass, _start_remotes))
     return True
 
 
@@ -50,7 +56,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: SequencerConfigEntry) -
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
-    # The static route can only be registered once per HA run (survives reloads).
     static_key = f"{DOMAIN}_static_registered"
     if not hass.data.get(static_key):
         await hass.http.async_register_static_paths(
