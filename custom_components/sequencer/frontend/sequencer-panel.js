@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -93,6 +93,17 @@ function order(cfg) {
 function wouldCycle(cfg, from, to) {
   if (from === to) return true;
   return descendants(childrenMap(cfg), to).has(from);
+}
+function guessImage(c) {
+  const t = `${c.entity_id} ${c.name || ""}`.toLowerCase();
+  const rules = [[/mixer|mixerbord/, "mixer"], [/slutsteg|amp|förstärk|forstark/, "amp"], [/dsp|processor/, "dsp"], [/receiver|reciever/, "receiver"],
+    [/sub/, "sub"], [/tak|ceiling/, "ceiling"], [/högtal|hogtal|speaker/, "speaker"], [/projekt/, "projector"], [/tv|skärm|display|monitor/, "tv"],
+    [/mic|mikrofon/, "mic"], [/switch|nätverk|router|poe/, "network"], [/stream|sonos|spelare|player|chromecast|apple/, "streamer"],
+    [/uttag|plug|ström|power|socket|grenuttag/, "power"]];
+  for (const [re, img] of rules) if (re.test(t)) return img;
+  if (c.domain === "light") return "light";
+  if (c.domain === "media_player") return "streamer";
+  return "generic";
 }
 const entityBased = (n) => (n.entities || []).length > 0 && ((n.on || {}).action || "turn_on") === "turn_on";
 
@@ -242,7 +253,54 @@ table.rules input[type=number] { width:76px; }
 .cand .t { flex:1; word-break:break-all; }
 .current { padding:10px 12px; border-radius:8px; background:var(--secondary-background-color); font-size:14px; }
 .flash { animation:flash 1.2s ease-out; } @keyframes flash { from { background:color-mix(in srgb, var(--ok) 40%, transparent); } }
-.savebar { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:10; display:none; align-items:center; gap:10px;
+/* ---- learn box */
+.learnbox { margin:8px 0; }
+.learnbox .cand { padding:6px 4px; }
+.learn-on { animation:pulseb 1.4s ease-in-out infinite; }
+@keyframes pulseb { 50% { box-shadow:0 0 0 4px color-mix(in srgb, var(--primary-color) 30%, transparent); } }
+.zoom { display:flex; gap:4px; margin-left:auto; }
+.zoom button { padding:4px 10px; min-width:36px; }
+.tab ha-icon { display:none; }
+/* ---- mobile layout */
+:host([mobile]) .content { padding:12px 10px 150px; }
+:host([mobile]) .tabs { position:fixed; left:0; right:0; bottom:0; z-index:15; justify-content:space-around; gap:0; padding:0 0 env(safe-area-inset-bottom);
+  background:var(--card-background-color,#fff); border-top:1px solid var(--divider-color); overflow:hidden; }
+:host([mobile]) .tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px 6px; font-size:11px;
+  color:var(--secondary-text-color); opacity:1; border-bottom:none; border-top:3px solid transparent; min-width:0; }
+:host([mobile]) .tab ha-icon { display:block; --mdc-icon-size:22px; }
+:host([mobile]) .tab.sel { color:var(--primary-color); border-top-color:var(--primary-color); }
+:host([mobile]) .tab:hover { background:none; }
+:host([mobile]) button { min-height:40px; }
+:host([mobile]) button.icon, :host([mobile]) .chip button, :host([mobile]) .swatch { min-height:0; }
+:host([mobile]) input, :host([mobile]) select { font-size:16px; padding:9px 10px; }
+:host([mobile]) .zone-grid { grid-template-columns:1fr; }
+:host([mobile]) .zone-card .btns button { flex:1; }
+:host([mobile]) .tools .hint { display:none; }
+:host([mobile]) .img-grid { grid-template-columns:repeat(4,1fr); }
+:host([mobile]) .dg-scroll { max-height:60vh; }
+:host([mobile]) .savebar { bottom:78px; }
+:host([mobile][sheet]) .savebar { bottom:14px; }
+:host([mobile]) .side-left { width:auto; }
+:host([mobile]) .seg button { min-width:0; padding:8px 4px; font-size:13px; }
+:host([mobile]) .savebar { flex-wrap:nowrap; padding:8px 10px; gap:8px; width:max-content; }
+:host([mobile]) .savebar .msg { font-size:13px; }
+:host([mobile]) .tools .zhint { display:block; font-size:12px; }
+.sheet { position:fixed; inset:0; z-index:20; background:var(--primary-background-color); display:flex; flex-direction:column; }
+.sheet-head { display:flex; align-items:center; gap:8px; height:56px; padding:0 8px; flex:none; box-sizing:border-box;
+  background:var(--app-header-background-color, var(--primary-color)); color:var(--app-header-text-color,#fff); font-size:17px; }
+.sheet-head button { color:inherit; border:none; font-size:16px; }
+.sheet-head b { flex:1; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sheet-body { flex:1; overflow:auto; padding:12px 10px 110px; -webkit-overflow-scrolling:touch; }
+.sheet .side-head { display:none; }
+.sheet .card { margin-bottom:12px; }
+@media (max-width: 760px) {
+  table.rules, table.rules tbody, table.rules tr, table.rules td { display:block; width:auto; }
+  table.rules tr:first-child { display:none; }
+  table.rules tr { border:1px solid var(--divider-color); border-radius:10px; padding:8px 10px; margin-bottom:10px; }
+  table.rules td { border:none; padding:4px 0; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  table.rules td[data-label]::before { content:attr(data-label); font-size:12px; color:var(--secondary-text-color); }
+}
+.savebar { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:30; display:none; align-items:center; gap:10px;
   background:var(--card-background-color); border:1px solid var(--divider-color); border-radius:12px; padding:10px 14px;
   box-shadow:0 4px 18px rgba(0,0,0,.25); max-width:calc(100vw - 32px); flex-wrap:wrap; }
 .savebar.show { display:flex; }
@@ -265,6 +323,8 @@ class SequencerPanel extends HTMLElement {
     this._learn = null;
     this._devTriggers = null;
     this._stateRefs = {};
+    this._zoom = null;
+    this._mobile = false;
   }
 
   set hass(hass) {
@@ -307,7 +367,13 @@ class SequencerPanel extends HTMLElement {
     root.addEventListener("pointerdown", (e) => this._onPointerDown(e));
     root.addEventListener("mouseover", (e) => this._onHover(e));
     root.addEventListener("keydown", (e) => this._onKey(e));
-    window.addEventListener("resize", () => this._fitDiagrams && this._main && this._fitDiagrams());
+    this._ro = new ResizeObserver((entries) => {
+      const w = entries[0].contentRect.width;
+      const m = w > 0 && w < 760;
+      if (m !== this._mobile) { this._mobile = m; this.toggleAttribute("mobile", m); this._render(); }
+      else this._fitDiagrams();
+    });
+    this._ro.observe(this);
     this._render();
   }
 
@@ -390,9 +456,10 @@ class SequencerPanel extends HTMLElement {
   /* ------------------------------------------------------------- render */
   _render() {
     if (!this._main) return;
-    const tabs = [["control", "Styrning"], ["flow", "Flödesschema"], ["rules", "Regler"], ["zones", "Grupper"], ["remotes", "Fjärrkontroller"]];
+    const tabs = [["control", "Styrning", "Styrning", "mdi:play-circle-outline"], ["flow", "Flödesschema", "Schema", "mdi:sitemap-outline"],
+      ["rules", "Regler", "Regler", "mdi:format-list-checks"], ["zones", "Grupper", "Grupper", "mdi:speaker-multiple"], ["remotes", "Fjärrkontroller", "Fjärrar", "mdi:remote"]];
     this.shadowRoot.getElementById("tabs").innerHTML = tabs
-      .map(([k, l]) => `<button class="tab ${this._tab === k ? "sel" : ""}" data-act="tab" data-tab="${k}">${l}</button>`).join("");
+      .map(([k, l, short, icon]) => `<button class="tab ${this._tab === k ? "sel" : ""}" data-act="tab" data-tab="${k}"><ha-icon icon="${icon}"></ha-icon><span>${this._mobile ? short : l}</span></button>`).join("");
 
     // keep scroll + focus across re-renders
     const scrolls = [...this._main.querySelectorAll(".dg-scroll")].map((el) => [el.dataset.dg, el.scrollLeft, el.scrollTop]);
@@ -403,6 +470,7 @@ class SequencerPanel extends HTMLElement {
     if (this._tab !== "control") this._fillDatalistsOnce();
     const html = { control: () => this._controlTab(), flow: () => this._flowTab(), rules: () => this._rulesTab(), zones: () => this._zonesTab(), remotes: () => this._remotesTab() }[this._tab]();
     this._main.innerHTML = html;
+    this.toggleAttribute("sheet", !!this._main.querySelector(".sheet"));
 
     this._main.querySelectorAll(".canvas").forEach((c) => this._drawEdges(c));
     this._fitDiagrams();
@@ -553,17 +621,26 @@ class SequencerPanel extends HTMLElement {
       </div>`;
     }).join("");
     const dg = `${src}-${editable ? "e" : "v"}-${this._tab}`;
-    return `<div class="dg-scroll ${editable ? "" : "fit"}" data-dg="${dg}"><div class="sizer"><div class="canvas ${editable ? "editable" : ""}" data-src="${src}" data-w="${w}" data-h="${h}" style="width:${w}px;height:${h}px">
+    return `${editable ? this._zoomBar() : ""}<div class="dg-scroll ${editable ? "zoomable" : "fit"}" data-dg="${dg}"><div class="sizer"><div class="canvas ${editable ? "editable" : ""}" data-src="${src}" data-w="${w}" data-h="${h}" style="width:${w}px;height:${h}px">
       <svg class="edges" width="${w}" height="${h}"></svg>${nodes}</div></div></div>`;
   }
 
+  _zoomBar() {
+    return `<div class="tools" style="margin:8px 8px 0"><span class="hint zhint">${this._mobile ? "Dra i en enhet för att flytta den. Tryck på den för att ändra inställningar och kopplingar." : ""}</span>
+      <div class="zoom"><button data-act="zoom" data-z="out" title="Zooma ut">−</button><button data-act="zoom" data-z="fit" title="Anpassa">⤢</button><button data-act="zoom" data-z="in" title="Zooma in">+</button></div></div>`;
+  }
+
   _fitDiagrams() {
-    this._main.querySelectorAll(".dg-scroll.fit").forEach((sc) => {
+    if (!this._main) return;
+    this._main.querySelectorAll(".dg-scroll.fit, .dg-scroll.zoomable").forEach((sc) => {
       const c = sc.querySelector(".canvas"); const sizer = sc.querySelector(".sizer");
+      if (!c || !sizer) return;
       const w = Number(c.dataset.w), h = Number(c.dataset.h);
       const avail = sc.clientWidth || w;
-      const k = Math.max(0.45, Math.min(1, avail / w));
-      c.style.transform = k < 1 ? `scale(${k})` : "";
+      const fit = Math.max(0.4, Math.min(1, avail / w));
+      const k = sc.classList.contains("zoomable") ? (this._zoom ?? (this._mobile ? fit : 1)) : fit;
+      c.dataset.k = k;
+      c.style.transform = k !== 1 ? `scale(${k})` : "";
       sizer.style.width = `${w * k}px`; sizer.style.height = `${h * k}px`;
     });
   }
@@ -589,6 +666,12 @@ class SequencerPanel extends HTMLElement {
     }
     if (tmp) out += `<path class="tmp-edge" d="M${tmp.x1},${tmp.y1} L${tmp.x2},${tmp.y2}"/>`;
     svg.innerHTML = out;
+  }
+
+  _sideWrap(title, inner, closeAct) {
+    if (!this._mobile) return `<div class="card side">${inner}</div>`;
+    return `<div class="sheet"><div class="sheet-head"><button data-act="${closeAct}">‹ Tillbaka</button><b>${esc(title)}</b></div>
+      <div class="sheet-body"><div class="card">${inner}</div></div></div>`;
   }
 
   /* --------------------------------------------------------- tab: control */
@@ -629,13 +712,15 @@ class SequencerPanel extends HTMLElement {
     return `<div class="content wide">
       <div class="tools">
         <button class="primary" data-act="add-node">+ Lägg till utrustning</button>
+        <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? "Lyssnar… <span data-learn-left></span> s" : "🎧 Lägg till med knapptryck"}</button>
         ${this._sel.edge ? `<button class="danger" data-act="del-edge">Ta bort vald koppling</button>` : ""}
         <span class="hint">Dra en enhet för att flytta den. Dra från den högra punkten till en annan enhet för att koppla ihop dem.
           Pilen betyder <b>startas före</b> och <b>stängs av efter</b>. Klicka på en pil för att markera den.</span>
       </div>
+      ${this._learn?.target === "new" ? `<div class="card">${this._learnList("Tryck på knappen på uttaget eller enheten du vill lägga till. Allt som ändrar läge visas här.", "Lägg till")}</div>` : ""}
       <div class="flow-layout">
         <div class="card pad0 grow">${this._diagram("draft", { editable: true })}</div>
-        ${node ? `<div class="card side">${this._nodeEditor(node)}</div>` : ""}
+        ${node ? this._sideWrap(node.name || "Utrustning", this._nodeEditor(node), "close-node") : ""}
       </div></div>`;
   }
 
@@ -660,12 +745,15 @@ class SequencerPanel extends HTMLElement {
       <div class="img-grid">${Object.entries(IMAGES).map(([k, [l, svg]]) => `<button class="img-opt ${n.image === k ? "sel" : ""}" data-act="set-image" data-img="${k}" title="${l}">${svg}<span>${l}</span></button>`).join("")}</div>
       <div class="lbl">Entiteter som styrs</div>
       ${this._chips(n.entities, "node")}
+      ${this._learnBox("node", "🎧 Lyssna – tryck på knappen på enheten", "Lägg till")}
       <div class="lbl">Påslag</div>${spec("on")}
       <div class="row" style="margin-top:8px"><label>Vänta efter påslag (s)<input type="number" min="0" step="0.5" data-nf="delay_on" value="${esc(n.delay_on || 0)}"></label></div>
       ${this._waitEditor(n, "wait_on", "Vänta innan påslag tills…")}
       <div class="lbl">Avstängning</div>${spec("off")}
       <div class="row" style="margin-top:8px"><label>Vänta efter avstängning (s)<input type="number" min="0" step="0.5" data-nf="delay_off" value="${esc(n.delay_off || 0)}"></label></div>
       ${this._waitEditor(n, "wait_off", "Vänta innan avstängning tills…")}
+      <div class="lbl">Kopplingar</div>
+      ${this._linkEditor(n)}
       <div class="lbl">Prioritet</div>
       ${actSel("rank", [["first", "Alltid först – startas först, stängs av sist"], ["normal", "Normal – följer pilarna"], ["last", "Alltid sist – startas sist, stängs av först"]], n.rank || "normal")}
       <div class="lbl">Används av</div>
@@ -673,6 +761,33 @@ class SequencerPanel extends HTMLElement {
       <div class="lbl">Testa</div>
       <div class="btns" style="margin-top:0"><button class="small" data-act="test-node" data-on="1">Slå på nu</button><button class="small" data-act="test-node" data-on="0">Stäng av nu</button></div>
       <div class="btns"><button class="danger small" data-act="del-node">Ta bort utrustning</button></div>`;
+  }
+
+  _linkEditor(n) {
+    const cfg = this._draft;
+    const nm = (id) => esc(cfg.nodes.find((x) => x.id === id)?.name || "?");
+    const outs = cfg.edges.filter((e) => e.from === n.id).map((e) => e.to);
+    const ins = cfg.edges.filter((e) => e.to === n.id).map((e) => e.from);
+    const opts = (dir, have) => cfg.nodes.filter((x) => x.id !== n.id && !have.includes(x.id) && !(dir === "out" ? wouldCycle(cfg, n.id, x.id) : wouldCycle(cfg, x.id, n.id)))
+      .map((x) => `<option value="${esc(x.id)}">${esc(x.name || "?")}</option>`).join("");
+    const chips = (list, dir) => list.map((id) => `<span class="chip">${nm(id)}<button data-act="unlink" data-dir="${dir}" data-other="${esc(id)}" title="Ta bort koppling">×</button></span>`).join("");
+    return `<div class="hint">Startas <b>efter</b> (och stängs av före):</div>
+      <div class="chips" style="margin:4px 0 10px">${chips(ins, "in")}<select data-link="in"><option value="">+ Lägg till…</option>${opts("in", ins)}</select></div>
+      <div class="hint">Startas <b>före</b> (och stängs av efter):</div>
+      <div class="chips" style="margin-top:4px">${chips(outs, "out")}<select data-link="out"><option value="">+ Lägg till…</option>${opts("out", outs)}</select></div>`;
+  }
+
+  _learnBox(target, startLabel, useLabel) {
+    const on = this._learn?.target === target;
+    return `<div class="learnbox"><button class="small ${on ? "primary learn-on" : ""}" data-act="learn-toggle" data-target="${target}">
+      ${on ? "Lyssnar… <span data-learn-left></span> s · Sluta" : startLabel}</button>
+      ${on ? this._learnList("Tryck på knappen nu. Allt som ändrar läge visas här.", useLabel) : ""}</div>`;
+  }
+
+  _learnList(hint, useLabel) {
+    const cands = this._learn?.cands || [];
+    return `<div class="hint" style="margin:6px 0">${hint}</div>
+      ${cands.map((c, i) => `<div class="cand"><span class="t">${this._candLabel(c)}</span><button class="small" data-act="use-learn" data-i="${i}">${useLabel}</button></div>`).join("")}`;
   }
 
   _chips(list, ctx) {
@@ -692,6 +807,7 @@ class SequencerPanel extends HTMLElement {
         <span>=</span><input data-cf="state" value="${esc(c.state || "")}" placeholder="on" style="width:84px">
         <button class="icon" data-act="del-cond" title="Ta bort">✕</button></div>`).join("")}
       <button class="small" data-act="add-cond" data-wpath="${key}">+ Villkor</button>
+      ${this._learnBox(`cond:${key}`, "🎧 Lyssna efter status", "Använd")}
       ${conds.length ? `<div class="row" style="margin-top:8px">
         <label>Krav<select data-wf="mode" data-wpath="${key}"><option value="all" ${w.mode !== "any" ? "selected" : ""}>Alla (X och Y)</option><option value="any" ${w.mode === "any" ? "selected" : ""}>Något (X eller Y)</option></select></label>
         <label>Max (s)<input type="number" min="1" data-wf="timeout" data-wpath="${key}" value="${esc(w.timeout ?? 60)}" style="width:76px"></label>
@@ -726,10 +842,10 @@ class SequencerPanel extends HTMLElement {
         <div class="hint">"Alltid först" passar t.ex. en mixer eller strömfördelare: den startas före allt annat och stängs av sist. "Alltid sist" passar slutsteg.</div>
         <div style="overflow-x:auto"><table class="rules"><tr><th>Utrustning</th><th>Prioritet</th><th>Vänta efter på (s)</th><th>Vänta efter av (s)</th><th>Väntar innan påslag på</th><th></th></tr>
         ${cfg.nodes.map((n) => `<tr data-rowid="${esc(n.id)}"><td><b>${esc(n.name || "?")}</b></td>
-          <td><select data-rr="rank">${["first", "normal", "last"].map((r) => `<option value="${r}" ${(n.rank || "normal") === r ? "selected" : ""}>${RANK_LABEL[r]}</option>`).join("")}</select></td>
-          <td><input type="number" min="0" step="0.5" data-rr="delay_on" value="${esc(n.delay_on || 0)}"></td>
-          <td><input type="number" min="0" step="0.5" data-rr="delay_off" value="${esc(n.delay_off || 0)}"></td>
-          <td>${waitText(n.wait_on)}</td>
+          <td data-label="Prioritet"><select data-rr="rank">${["first", "normal", "last"].map((r) => `<option value="${r}" ${(n.rank || "normal") === r ? "selected" : ""}>${RANK_LABEL[r]}</option>`).join("")}</select></td>
+          <td data-label="Vänta efter på (s)"><input type="number" min="0" step="0.5" data-rr="delay_on" value="${esc(n.delay_on || 0)}"></td>
+          <td data-label="Vänta efter av (s)"><input type="number" min="0" step="0.5" data-rr="delay_off" value="${esc(n.delay_off || 0)}"></td>
+          <td data-label="Väntar på">${waitText(n.wait_on)}</td>
           <td><button class="small" data-act="edit-node" data-id="${esc(n.id)}">Villkor…</button></td></tr>`).join("")}
         </table></div>
       </div>
@@ -746,9 +862,15 @@ class SequencerPanel extends HTMLElement {
     const z = cfg.zones.find((x) => x.id === this._sel.zone);
     const list = cfg.zones.map((x, i) => `<div class="list-item ${x.id === this._sel.zone ? "sel" : ""}" data-act-item="zone" data-id="${esc(x.id)}">
       <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${closure(cfg, [x.id]).size} enheter</small></span></div>`).join("");
+    const listCard = `<div class="card side-left"><h2>Grupper</h2>${list || `<div class="hint">Inga grupper ännu.</div>`}
+        <div class="btns"><button class="primary" data-act="add-zone">+ Ny grupp</button></div></div>`;
+    if (this._mobile) {
+      return `<div class="content">${listCard}<div class="card pad0">${this._diagram("draft")}</div>
+        ${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-zone">‹ Tillbaka</button><b>${esc(z.name)}</b></div>
+          <div class="sheet-body">${this._zoneEditor(z)}<div class="card pad0">${this._diagram("draft", { highlight: z.id, dimOthers: true })}</div></div></div>` : ""}</div>`;
+    }
     return `<div class="content wide"><div class="flow-layout">
-      <div class="card side-left"><h2>Grupper</h2>${list || `<div class="hint">Inga grupper ännu.</div>`}
-        <div class="btns"><button class="primary" data-act="add-zone">+ Ny grupp</button></div></div>
+      ${listCard}
       <div class="grow">${z ? this._zoneEditor(z) : `<div class="card empty">En grupp är t.ex. ett rum eller en zon. Välj vilken utrustning den behöver.
         Det som krävs före (enligt flödesschemat) tas med automatiskt, och utrustning som delas med en annan grupp som är igång stängs inte av.</div>`}
         <div class="card pad0">${this._diagram("draft", { highlight: z?.id, dimOthers: !!z })}</div></div>
@@ -799,6 +921,13 @@ class SequencerPanel extends HTMLElement {
     const list = cfg.remotes.map((x) => `<div class="list-item ${x.id === this._sel.remote ? "sel" : ""}" data-act-item="remote" data-id="${esc(x.id)}">
       <span class="t">${esc(x.name || "Namnlös knapp")}${x.enabled === false ? " <small style='display:inline'>(av)</small>" : ""}
       <small>${ZONE_ACTION_LABEL[x.action] || ""} ${zname(x.target)}</small><small data-rstat="${esc(x.id)}"></small></span></div>`).join("");
+    if (this._mobile) {
+      return `<div class="content"><div class="card"><h2>Fjärrkontroller</h2>${list || `<div class="hint">Inga knappar kopplade ännu. Koppla knappar på fjärrkontroller direkt till grupperna – tryck på Lyssna och sedan på knappen.</div>`}
+        <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>+ Koppla en knapp</button></div>
+        ${cfg.zones.length ? "" : `<div class="hint" style="margin-top:8px">Skapa en grupp först.</div>`}</div>
+        ${r ? `<div class="sheet"><div class="sheet-head"><button data-act="close-remote">‹ Tillbaka</button><b>${esc(r.name || "Knapp")}</b></div>
+          <div class="sheet-body">${this._remoteEditor(r)}</div></div>` : ""}</div>`;
+    }
     return `<div class="content wide"><div class="flow-layout">
       <div class="card side-left"><h2>Fjärrkontroller</h2>${list || `<div class="hint">Inga knappar kopplade ännu.</div>`}
         <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>+ Koppla en knapp</button></div>
@@ -815,10 +944,9 @@ class SequencerPanel extends HTMLElement {
     const kinds = [["learn", "🎧 Lyssna"], ["device", "Enhet"], ["entity", "Entitet"], ["event", "Händelse"]];
     let body = "";
     if (kind === "learn") {
-      const cands = this._learn?.cands || [];
-      body = `<button class="primary" data-act="learn">${this._learn ? `Lyssnar… <span data-learn-left></span> s – klicka för att sluta` : "Börja lyssna"}</button>
-        <div class="hint" style="margin:8px 0">Tryck på knappen på fjärrkontrollen. Allt som händer visas nedan – välj rätt rad.</div>
-        ${cands.map((c, i) => `<div class="cand"><span class="t">${this._candLabel(c)}</span><button class="small" data-act="use-cand" data-i="${i}">Använd</button></div>`).join("")}`;
+      const on = this._learn?.target === "remote";
+      body = `<button class="primary ${on ? "learn-on" : ""}" data-act="learn-toggle" data-target="remote">${on ? `Lyssnar… <span data-learn-left></span> s – klicka för att sluta` : "Börja lyssna"}</button>
+        ${on ? this._learnList("Tryck på knappen på fjärrkontrollen. Allt som händer visas nedan – välj rätt rad.", "Använd") : ""}`;
     } else if (kind === "device") {
       const devs = Object.values(this._hass.devices || {}).filter((d) => !d.disabled_by)
         .map((d) => ({ id: d.id, name: d.name_by_user || d.name || d.id, area: this._hass.areas?.[d.area_id]?.name }))
@@ -877,6 +1005,7 @@ class SequencerPanel extends HTMLElement {
   }
 
   _candLabel(c) {
+    if (c.kind === "entity") return `<b>${esc(c.name)}</b> <small>${esc(c.entity_id)}</small><br><small>${esc(c.from)} → ${esc(c.to)}</small>`;
     if (c.kind === "event_entity") return `<b>${esc(c.name)}</b> → ${esc(c.event_type || "händelse")}`;
     if (c.kind === "button") return `<b>${esc(c.name)}</b> tryckt`;
     if (c.kind === "state") return `<b>${esc(c.name)}</b> = ${esc(c.to)}`;
@@ -896,24 +1025,54 @@ class SequencerPanel extends HTMLElement {
   }
 
   /* ------------------------------------------------------------- learning */
-  _startLearn() {
+  _startLearn(target) {
     this._stopLearn();
-    this._learn = { cands: [], keys: new Set(), until: Date.now() / 1000 + 60 };
+    const mode = target === "remote" ? "remote" : "entity";
+    this._learn = { target, cands: [], keys: new Set(), until: Date.now() / 1000 + 60 };
     this._learn.unsubP = this._hass.connection.subscribeMessage((c) => {
       if (!this._learn) return;
-      const key = JSON.stringify(c);
-      if (this._learn.keys.has(key)) return;
-      this._learn.keys.add(key);
-      this._learn.cands.unshift(c);
+      const key = c.kind === "entity" ? `${c.entity_id}` : JSON.stringify(c);
+      if (this._learn.keys.has(key)) { if (c.kind === "entity") { const i = this._learn.cands.findIndex((x) => x.entity_id === c.entity_id); if (i >= 0) this._learn.cands[i] = c; } }
+      else { this._learn.keys.add(key); this._learn.cands.unshift(c); }
       this._learn.cands = this._learn.cands.slice(0, 25);
-      if (this._tab === "remotes") this._render();
-    }, { type: "sequencer/learn" });
+      this._render();
+    }, { type: "sequencer/learn", mode });
     this._learn.unsubP.catch((e) => { this._toast(e.message || String(e), true); this._learn = null; });
   }
   _stopLearn() {
     if (!this._learn) return;
     this._learn.unsubP?.then((u) => u()).catch(() => {});
     this._learn = null;
+  }
+
+  _useLearned(c) {
+    const target = this._learn?.target;
+    const d = this._draft;
+    if (!c || !target) return;
+    if (target === "remote") {
+      this._useCandidate(c, d.remotes.find((x) => x.id === this._sel.remote));
+    } else if (target === "new") {
+      const exists = d.nodes.find((n) => (n.entities || []).includes(c.entity_id));
+      if (exists) { this._sel.node = exists.id; this._toast(`${c.name} finns redan i schemat.`); }
+      else {
+        const n = { id: uid(), name: c.name, image: guessImage(c), entities: [c.entity_id], on: { action: "turn_on", _dataText: "" }, off: { action: "turn_off", _dataText: "" },
+          delay_on: 2, delay_off: 1, rank: "normal", wait_on: null, wait_off: null, ...this._freeSpot() };
+        d.nodes.push(n); this._sel.node = n.id;
+      }
+      this._stopLearn();
+    } else if (target === "node") {
+      const n = this._node(this._sel.node);
+      if (!n.entities.includes(c.entity_id)) n.entities.push(c.entity_id);
+      if (!n.name) n.name = c.name;
+      if (!n.image || n.image === "generic") n.image = guessImage(c);
+      this._stopLearn();
+    } else if (target.startsWith("cond:")) {
+      const k = target.slice(5); const n = this._node(this._sel.node);
+      n[k] ||= { mode: "all", timeout: 60, on_timeout: "continue", conditions: [] };
+      n[k].conditions.push({ entity_id: c.entity_id, attribute: "", state: c.to });
+      this._stopLearn();
+    }
+    this._markDirty(); this._render();
   }
 
   _useCandidate(c, r) {
@@ -946,7 +1105,7 @@ class SequencerPanel extends HTMLElement {
       const hit = t.closest("[data-ehit]");
       const nodeEl = t.closest(".node");
       if (hit) { this._sel.edge = { from: hit.dataset.efrom, to: hit.dataset.eto }; this._sel.node = null; }
-      else if (nodeEl) { this._sel.node = nodeEl.dataset.id; this._sel.edge = null; }
+      else if (nodeEl) { if (this._sel.node !== nodeEl.dataset.id && this._learn?.target !== "new") this._stopLearn(); this._sel.node = nodeEl.dataset.id; this._sel.edge = null; }
       else { this._sel.node = null; this._sel.edge = null; }
       this._render(); return;
     }
@@ -956,7 +1115,7 @@ class SequencerPanel extends HTMLElement {
     const act = btn.dataset.act;
     const d = this._draft;
     switch (act) {
-      case "tab": this._tab = btn.dataset.tab; this._hl = null; if (this._tab !== "remotes") this._stopLearn(); this._render(); window.scrollTo(0, 0); return;
+      case "tab": this._tab = btn.dataset.tab; this._hl = null; this._stopLearn(); this._render(); window.scrollTo(0, 0); return;
       case "zone":
         try { await this._hass.callWS({ type: "sequencer/zone", zone_id: btn.dataset.id, action: btn.dataset.action }); }
         catch (e) { this._toast(e.message || String(e), true); }
@@ -970,7 +1129,7 @@ class SequencerPanel extends HTMLElement {
           delay_on: 2, delay_off: 1, rank: "normal", wait_on: null, wait_off: null, ...this._freeSpot() };
         d.nodes.push(n); this._sel.node = n.id; this._sel.edge = null; this._markDirty(); this._render(); return;
       }
-      case "close-node": this._sel.node = null; this._render(); return;
+      case "close-node": this._sel.node = null; this._stopLearn(); this._render(); return;
       case "del-node": {
         const id = this._sel.node; const n = this._node(id);
         if (!confirm(`Ta bort "${n?.name || "utrustningen"}"?`)) return;
@@ -1034,11 +1193,23 @@ class SequencerPanel extends HTMLElement {
       case "del-remote":
         d.remotes = d.remotes.filter((x) => x.id !== this._sel.remote); this._sel.remote = null; this._stopLearn(); this._markDirty(); this._render(); return;
       case "rkind": this._rkind = btn.dataset.kind; if (this._rkind !== "learn") this._stopLearn(); this._render(); return;
-      case "learn": if (this._learn) this._stopLearn(); else this._startLearn(); this._render(); return;
-      case "use-cand": {
-        const r = d.remotes.find((x) => x.id === this._sel.remote);
-        this._useCandidate(this._learn.cands[Number(btn.dataset.i)], r); this._markDirty(); this._render(); return;
+      case "learn-toggle":
+        if (this._learn?.target === btn.dataset.target) this._stopLearn(); else this._startLearn(btn.dataset.target);
+        this._render(); return;
+      case "use-learn": this._useLearned(this._learn.cands[Number(btn.dataset.i)]); return;
+      case "zoom": {
+        const sc = this._main.querySelector(".dg-scroll.zoomable .canvas");
+        const cur = Number(sc?.dataset.k) || 1;
+        this._zoom = btn.dataset.z === "fit" ? null : Math.max(0.3, Math.min(1.6, cur * (btn.dataset.z === "in" ? 1.25 : 0.8)));
+        this._fitDiagrams(); return;
       }
+      case "unlink": {
+        const n = this._node(this._sel.node); const o = btn.dataset.other;
+        d.edges = d.edges.filter((e) => !(btn.dataset.dir === "out" ? e.from === n.id && e.to === o : e.from === o && e.to === n.id));
+        this._markDirty(); this._render(); return;
+      }
+      case "close-zone": this._sel.zone = null; this._render(); return;
+      case "close-remote": this._sel.remote = null; this._stopLearn(); this._render(); return;
     }
   }
 
@@ -1116,6 +1287,12 @@ class SequencerPanel extends HTMLElement {
       const n = this._node(this._sel.node); this._setPath(n, t.dataset.nf, t.value); this._markDirty(); this._render(); return;
     }
     if (t.dataset.cf === "entity_id") { this._render(); return; }
+    if (t.dataset.link && t.value) {
+      const n = this._node(this._sel.node);
+      const e = t.dataset.link === "out" ? { from: n.id, to: t.value } : { from: t.value, to: n.id };
+      if (wouldCycle(d, e.from, e.to)) { this._toast("Det skulle skapa en loop.", true); this._render(); return; }
+      d.edges.push(e); this._markDirty(); this._render(); return;
+    }
     if (t.dataset.wf && t.tagName === "SELECT") { this._node(this._sel.node)[t.dataset.wpath][t.dataset.wf] = t.value; this._markDirty(); return; }
     if (t.dataset.rr === "rank") { this._node(t.closest("[data-rowid]").dataset.rowid).rank = t.value; this._markDirty(); this._render(); return; }
     if (t.dataset.rr) { this._render(); return; }
@@ -1182,13 +1359,14 @@ class SequencerPanel extends HTMLElement {
     const n = this._node(nodeEl.dataset.id);
     ev.preventDefault();
     const rect = () => canvas.getBoundingClientRect();
+    const k = Number(canvas.dataset.k) || 1;
     const drag = { canvas, n, nodeEl, sx: ev.clientX, sy: ev.clientY, ox: n.x, oy: n.y, moved: false, port: !!port };
     const move = (e) => {
-      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      const dx = (e.clientX - drag.sx) / k, dy = (e.clientY - drag.sy) / k;
       if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
       if (drag.port) {
         const r = rect();
-        this._drawEdges(canvas, { x1: n.x + NODE_W, y1: n.y + NODE_H / 2, x2: e.clientX - r.left, y2: e.clientY - r.top });
+        this._drawEdges(canvas, { x1: n.x + NODE_W, y1: n.y + NODE_H / 2, x2: (e.clientX - r.left) / k, y2: (e.clientY - r.top) / k });
       } else if (drag.moved) {
         n.x = snap(drag.ox + dx); n.y = snap(drag.oy + dy);
         nodeEl.style.left = `${n.x}px`; nodeEl.style.top = `${n.y}px`;

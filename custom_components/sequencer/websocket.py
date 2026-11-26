@@ -11,6 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.const import EVENT_STATE_CHANGED, MATCH_ALL
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later
 
 from . import graph
@@ -281,18 +282,62 @@ def _candidate(event: Event) -> dict[str, Any] | None:
     return {"kind": "event", "event_type": etype, "event_data": _json_safe(data)}
 
 
+_SKIP_DOMAINS = {
+    "sun", "weather", "zone", "person", "device_tracker", "update", "automation", "script",
+    "scene", "event", "button", "input_button", "timer", "counter", "image", "camera",
+    "calendar", "todo", "conversation", "tts", "stt", "wake_word", "assist_satellite",
+    "time", "date", "datetime", "input_datetime", "tag", "image_processing", "group",
+}
+
+
+def _entity_candidate(hass: HomeAssistant, event: Event) -> dict[str, Any] | None:
+    """Learn mode for equipment: something physically changed state (e.g. a plug button)."""
+    if event.event_type != EVENT_STATE_CHANGED:
+        return None
+    eid: str = event.data.get("entity_id", "")
+    new = event.data.get("new_state")
+    old = event.data.get("old_state")
+    if new is None or old is None or old.state == new.state:
+        return None
+    if {old.state, new.state} & {"unavailable", "unknown"}:
+        return None
+    domain = eid.split(".", 1)[0]
+    if domain in _SKIP_DOMAINS:
+        return None
+    try:
+        float(new.state)
+        return None  # numeric sensors change all the time
+    except ValueError:
+        pass
+    entry = er.async_get(hass).async_get(eid)
+    if entry is not None and entry.platform == DOMAIN:
+        return None
+    return {
+        "kind": "entity",
+        "entity_id": eid,
+        "domain": domain,
+        "name": new.attributes.get("friendly_name") or eid,
+        "from": old.state,
+        "to": new.state,
+    }
+
+
 @websocket_api.require_admin
-@websocket_api.websocket_command({vol.Required("type"): "sequencer/learn"})
+@websocket_api.websocket_command(
+    {vol.Required("type"): "sequencer/learn", vol.Optional("mode", default="remote"): vol.In(["remote", "entity"])}
+)
 @callback
 def ws_learn(hass: HomeAssistant, connection, msg) -> None:
     active = {"on": True}
     unsubs: list = []
+    entity_mode = msg["mode"] == "entity"
 
     @callback
     def handle(event: Event) -> None:
         if not active["on"]:
             return
-        if (cand := _candidate(event)) is not None:
+        cand = _entity_candidate(hass, event) if entity_mode else _candidate(event)
+        if cand is not None:
             connection.send_message(websocket_api.event_message(msg["id"], cand))
 
     @callback

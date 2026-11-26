@@ -12,6 +12,18 @@ Lägger till fliken **Sekvenser** i sidomenyn. Där ritar du upp din anläggning
 | **Grupper** | Välj vilken utrustning en grupp behöver. Det som krävs före tas med automatiskt. Här väljer du också gruppens status-LED. |
 | **Fjärrkontroller** | Koppla knappar till grupper med åtgärden *Starta*, *Stäng av* eller *Växla*. Lyssna-läget hittar knappen åt dig. |
 
+## Lyssna – lägg till med knapptryck
+
+Ett trådlöst uttag eller en enhet med en fysisk knapp hittar du genom att trycka på knappen:
+
+- **Flödesschema → 🎧 Lägg till med knapptryck**: skapar ny utrustning med namn och en gissad bild.
+- **I utrustningens inställningar → 🎧 Lyssna**: lägger till entiteten i befintlig utrustning.
+- **Vid väntevillkor → 🎧 Lyssna efter status**: skapar villkoret "vänta tills X = det nya läget".
+
+## Mobil
+
+Panelen känner av sin bredd. På mobil flyttas flikarna till en meny längst ner, redigerare öppnas i helskärm, tabeller blir kort och flödesschemat får zoomknappar. Kopplingar kan också göras i utrustningens inställningar under *Kopplingar*, så du behöver inte dra pilar med fingret.
+
 ## Delad utrustning
 
 Om Vardagsrum och Kök delar samma mixer gäller följande:
