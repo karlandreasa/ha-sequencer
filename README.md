@@ -90,3 +90,10 @@ Välj en light- eller switch-entitet, t.ex. en GPIO-LED:
 `switch.<namn>` skapas för både grupper och egna sekvenser.
 
 Sekvenser från version 1 konverteras automatiskt till utrustning och grupper.
+
+## Tredjepart och erkännanden
+
+- **Art-Net™** Designed by and Copyright Artistic Licence Engineering Ltd. Sequencer skickar ArtDmx-paket enligt den publicerade, royaltyfria specifikationen.
+- **sACN / ANSI E1.31** är en öppen standard från ESTA.
+- **Windows-avstängning** använder protokollet [MS-RSP], som Microsoft har publicerat som en Open Specification. Funktionen använder biblioteket **[Impacket](https://github.com/fortra/impacket)** ("This product includes software developed by SecureAuth Corporation"). Impacket ingår inte i det här repot. Home Assistant installerar det från PyPI först när funktionen används, och då gäller Impackets egen licens (en modifierad Apache Software License 1.1).
+- Bilderna på utrustning är egna, enkla SVG-ritningar.
