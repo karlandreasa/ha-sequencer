@@ -454,8 +454,10 @@ class SequencerPanel extends HTMLElement {
     this._ro = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width;
       const m = w > 0 && w < 760;
-      if (m !== this._mobile) { this._mobile = m; this.toggleAttribute("mobile", m); this._render(); }
-      else this._fitDiagrams();
+      requestAnimationFrame(() => {
+        if (m !== this._mobile) { this._mobile = m; this.toggleAttribute("mobile", m); this._render(); }
+        else this._fitDiagrams();
+      });
     });
     this._ro.observe(this);
     this._render();
