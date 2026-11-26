@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sekvensstyrning",
+        "description": "Lägger till fliken 'Sekvenser' i sidomenyn där du bygger start- och stoppsekvenser."
+      }
+    },
+    "abort": {
+      "already_configured": "Sekvensstyrning är redan installerad.",
+      "single_instance_allowed": "Sekvensstyrning är redan installerad."
+    }
+  }
+}

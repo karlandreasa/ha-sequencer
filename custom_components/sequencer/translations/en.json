@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sequencer",
+        "description": "Adds a 'Sequences' tab to the sidebar where you build start/stop sequences."
+      }
+    },
+    "abort": {
+      "already_configured": "Sequencer is already set up.",
+      "single_instance_allowed": "Sequencer is already set up."
+    }
+  }
+}
