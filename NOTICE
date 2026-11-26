@@ -1,0 +1,16 @@
+Sequencer – sekvensstyrning för Home Assistant
+Copyright 2026 karlandreasa
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product implements the following published protocols and uses the
+following third-party software:
+
+* Art-Net(TM) Designed by and Copyright Artistic Licence Engineering Ltd.
+* sACN (ANSI E1.31), an open standard published by ESTA.
+* [MS-RSP] Remote Shutdown Protocol, a Microsoft Open Specification.
+* Impacket (https://github.com/fortra/impacket) is used for Windows remote
+  shutdown. It is not included in this repository; Home Assistant installs it
+  from PyPI on first use, under its own license (a modified Apache Software
+  License 1.1). "This product includes software developed by SecureAuth
+  Corporation (https://www.secureauth.com/)."

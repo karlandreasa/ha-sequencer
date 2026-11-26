@@ -97,3 +97,7 @@ Sekvenser från version 1 konverteras automatiskt till utrustning och grupper.
 - **sACN / ANSI E1.31** är en öppen standard från ESTA.
 - **Windows-avstängning** använder protokollet [MS-RSP], som Microsoft har publicerat som en Open Specification. Funktionen använder biblioteket **[Impacket](https://github.com/fortra/impacket)** ("This product includes software developed by SecureAuth Corporation"). Impacket ingår inte i det här repot. Home Assistant installerar det från PyPI först när funktionen används, och då gäller Impackets egen licens (en modifierad Apache Software License 1.1).
 - Bilderna på utrustning är egna, enkla SVG-ritningar.
+
+## Licens
+
+Apache License 2.0. Se [LICENSE](LICENSE) och [NOTICE](NOTICE). Du får använda, ändra och sprida koden, även kommersiellt, så länge licensen och NOTICE följer med. Licensen ger ingen rätt att använda projektets namn eller varumärke.
