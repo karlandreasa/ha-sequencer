@@ -1,42 +1,53 @@
 # Sequencer – sekvensstyrning för Home Assistant
 
-Lägger till fliken **Sekvenser** i sidomenyn. Där bygger du sekvenser som startar och stänger av saker i tur och ordning, med en paus mellan varje del. Den är gjord för ljudanläggningar (mixer → DSP → slutsteg på, och tvärtom vid avstängning) men fungerar med alla entiteter och tjänster.
+Lägger till fliken **Sekvenser** i sidomenyn. Där ritar du upp din anläggning, till exempel mixer → DSP → slutsteg, och delar in den i grupper som rum eller zoner. Sedan startar och stänger du grupperna i rätt ordning, från panelen, från en switch eller direkt från en fjärrkontroll. Inga automationer behövs.
 
-## Funktioner
+## Flikar
 
-- **Grafisk editor** i en egen flik: steg med namn, en eller flera entiteter, åtgärd och fördröjning till nästa steg. Stegen går att flytta upp och ned.
-- **Åtgärder:** slå på, stäng av, växla eller valfri tjänst (t.ex. `media_player.volume_set`, `script.turn_on`) med extra data i JSON.
-- **Avstängning:**
-  - *Omvänd ordning:* startsekvensen körs baklänges med inverterad åtgärd och samma pauser. Slutstegen stängs alltså av först.
-  - *Egen sekvens:* en helt separat avstängningsordning. Den kan fyllas i från den omvända startsekvensen som utgångspunkt.
-- **Live-status** i panelen: vilket steg som körs, nedräkning under pauser och eventuella fel.
-- **Säkert avbrott:** trycker du *Stäng av* medan sekvensen startar avbryts starten direkt och avstängningen körs.
-- **En switch per sekvens** (`switch.<namn>`): *på* kör startsekvensen och *av* kör avstängningen. Den kan användas i automationer, på dashboards, med röststyrning och så vidare. Attributen `status`, `step`, `total_steps`, `step_name` och `errors` visar förloppet.
-- **Event** `sequencer_event` (`type: started/finished`, `direction: start/stop`) som du kan trigga automationer på, t.ex. "när ljudet är helt uppstartat".
+| Flik | Vad du gör där |
+|---|---|
+| **Styrning** | Starta och stäng av grupper, "Stäng av allt" och live-schema över vad som är igång. Håll muspekaren över en grupp för att se vilken utrustning den använder. |
+| **Flödesschema** | Lägg till utrustning med en bild (mixer, slutsteg, högtalare, DSP …), dra den dit du vill och dra pilar mellan enheterna. En pil betyder **startas före** och **stängs av efter**. |
+| **Regler** | Samma ordning som pilarna, men i textform. Här finns också *prioritet* (alltid först / alltid sist), fördröjningar och väntevillkor samlade i en tabell. |
+| **Grupper** | Välj vilken utrustning en grupp behöver. Det som krävs före tas med automatiskt. Här väljer du också gruppens status-LED. |
+| **Fjärrkontroller** | Koppla knappar till grupper med åtgärden *Starta*, *Stäng av* eller *Växla*. Lyssna-läget hittar knappen åt dig. |
+
+## Delad utrustning
+
+Om Vardagsrum och Kök delar samma mixer gäller följande:
+
+- Mixern startas när den första gruppen startar. Det som redan är igång hoppas över.
+- Mixern stängs bara av när **ingen** annan grupp som använder den är igång.
+
+## Per utrustning
+
+- **Påslag och avstängning:** slå på/stäng av entiteterna, valfri tjänst med JSON-data, eller *ingen åtgärd*. Det sista passar passiva högtalare som bara ska synas i schemat.
+- **Vänta efter påslag / avstängning** i sekunder.
+- **Vänta tills …** en eller flera entiteter (eventuellt ett attribut) har ett visst värde, till exempel `sensor.slutsteg_status = ready`. Du väljer *alla* (X och Y) eller *något* (X eller Y), en maxtid, och om sekvensen ska fortsätta eller avbrytas när tiden går ut.
+- **Prioritet:** *Alltid först* betyder att enheten startas före allt annat i samma körning och stängs av sist. *Alltid sist* betyder tvärtom. Prioritet påverkar bara ordningen. Den gör inte att enheten följer med i en grupp, det gör pilarna och gruppvalet.
+- **Testa:** knappar för att slå på eller stänga av en enhet direkt.
+
+## Status-LED per grupp
+
+Välj en light- eller switch-entitet, t.ex. en GPIO-LED:
+
+- **Långsam blinkning** medan sekvensen körs.
+- **Fast sken** när allt startade eller stängdes av som det skulle. Släcks efter 30 min, och tiden går att ändra.
+- **Snabb blinkning** vid fel. Fortsätter tills gruppen körs igen.
+
+## Fjärrkontroller
+
+- **Lyssna:** tryck på knappen inom 60 s och välj rätt rad. Det fungerar med ZHA, deCONZ, Hue, Z-Wave, Zigbee2MQTT (action-sensorer), event-entiteter och knappar.
+- **Enhet:** välj enhet och knapp, på samma sätt som i HA:s automationsredigerare.
+- **Entitet** eller **Händelse:** manuellt läge för avancerade fall.
+
+## I Home Assistant
+
+- `switch.<grupp>`: på startar gruppen och av stänger den. Attributen visar status, aktuellt steg, vad den väntar på och eventuella fel.
+- Eventet `sequencer_event` (`type: started/finished`, `action: start/stop`, `zone_id`, `errors`).
 
 ## Installation
 
-**Marketplace (HA 2026.11+):** Inställningar → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → installera → starta om. (Äldre HA med HACS: lägg till samma repo som *Custom repository*, typ *Integration*.)
+**Marketplace (HA 2026.11+):** Inställningar → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → installera → starta om. Lägg sedan till integrationen *Sequencer* under Enheter och tjänster.
 
-**Manuellt:** kopiera `custom_components/sequencer` till `/config/custom_components/sequencer`.
-
-Starta sedan om Home Assistant och gå till **Inställningar → Enheter och tjänster → Lägg till integration → Sequencer**. Fliken **Sekvenser** dyker upp i sidomenyn. Den syns bara för administratörer.
-
-Kräver Home Assistant 2025.1 eller senare.
-
-## Exempel
-
-| Steg | Entiteter | Åtgärd | Vänta |
-|---|---|---|---|
-| Mixer | `switch.mixer` | Slå på | 3 s |
-| DSP / processor | `switch.dsp` | Slå på | 5 s |
-| Slutsteg | `switch.amp_front`, `switch.amp_sub` | Slå på | – |
-
-Med omvänd avstängning blir ordningen: slutsteg av → 5 s → DSP av → 3 s → mixer av.
-
-## Bra att veta
-
-- Varje tjänsteanrop väntar på svar (högst 30 s) innan pausen börjar. Om ett steg misslyckas loggas felet, det visas i panelen och sekvensen fortsätter.
-- Steg av typen *Annan tjänst* går inte att invertera och hoppas därför över i omvänt läge. Pausen behålls. Välj egen avstängningssekvens om sådana steg behövs.
-- Sekvenserna sparas i `.storage/sequencer.sequences`.
-- Efter en omstart av Home Assistant visar alla sekvenser *Av*, eftersom integrationen inte vet vad som faktiskt är påslaget.
+Sekvenser från version 1 konverteras automatiskt till utrustning och grupper.
