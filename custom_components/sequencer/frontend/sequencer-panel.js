@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.3.0";
+const VERSION = "2.3.1";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -36,6 +36,8 @@ const IMAGES = {
   generic: ["Övrigt", IMG(`<rect x="10" y="10" width="44" height="28" rx="4"/><path d="M32 16v8"/><path d="M26 19.5a8 8 0 1 0 12 0"/>`)],
 };
 
+const ICON_PRESS = `<ha-icon class="bi" icon="mdi:gesture-tap-button"></ha-icon>`;
+const ICON_WATCH = `<ha-icon class="bi" icon="mdi:eye-outline"></ha-icon>`;
 const RANK_LABEL = { first: "Alltid först", normal: "Normal", last: "Alltid sist" };
 const ZONE_ACTION_LABEL = { start: "Starta", stop: "Stäng av", toggle: "Växla på/av" };
 
@@ -339,6 +341,7 @@ table.rules input[type=number] { width:76px; }
 .sub-nav { display:flex; max-width:340px; margin:0 0 12px; }
 /* ---- learn box */
 .learnbox { margin:8px 0; }
+ha-icon.bi { --mdc-icon-size:18px; vertical-align:-4px; margin-right:6px; }
 .learnbox .cand { padding:6px 4px; }
 .learn-on { animation:pulseb 1.4s ease-in-out infinite; }
 @keyframes pulseb { 50% { box-shadow:0 0 0 4px color-mix(in srgb, var(--primary-color) 30%, transparent); } }
@@ -818,7 +821,7 @@ class SequencerPanel extends HTMLElement {
     return `<div class="content wide">${this._subNav()}
       <div class="tools">
         <button class="primary" data-act="add-node">+ Lägg till utrustning</button>
-        <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? "Lyssnar… <span data-learn-left></span> s" : "🎧 Lägg till med knapptryck"}</button>
+        <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? "Lyssnar… <span data-learn-left></span> s" : `${ICON_PRESS}Lägg till med knapptryck`}</button>
         ${this._sel.edge ? `<button class="danger" data-act="del-edge">Ta bort vald koppling</button>` : ""}
         <span class="hint">Dra en enhet för att flytta den. Dra från den högra punkten till en annan enhet för att koppla ihop dem.
           Pilen betyder <b>startas före</b> och <b>stängs av efter</b>. Klicka på en pil för att markera den.</span>
@@ -853,7 +856,7 @@ class SequencerPanel extends HTMLElement {
       <div class="img-grid">${Object.entries(IMAGES).map(([k, [l, svg]]) => `<button class="img-opt ${n.image === k ? "sel" : ""}" data-act="set-image" data-img="${k}" title="${l}">${svg}<span>${l}</span></button>`).join("")}</div>
       <div class="lbl">Entiteter som styrs</div>
       ${this._chips(n.entities, "node")}
-      ${this._learnBox("node", "🎧 Lyssna – tryck på knappen på enheten", "Lägg till")}
+      ${this._learnBox("node", `${ICON_PRESS}Lyssna – tryck på knappen på enheten`, "Lägg till")}
       <div class="lbl">Påslag</div>${spec("on")}
       <div class="row" style="margin-top:8px"><label>Vänta efter påslag (s)<input type="number" min="0" step="0.5" data-nf="delay_on" value="${esc(n.delay_on || 0)}"></label></div>
       ${this._waitEditor(n, "wait_on", "Vänta innan påslag tills…")}
@@ -969,7 +972,7 @@ class SequencerPanel extends HTMLElement {
         <span>=</span><input data-cf="state" value="${esc(c.state || "")}" placeholder="on" style="width:84px">
         <button class="icon" data-act="del-cond" title="Ta bort">✕</button></div>`).join("")}
       <button class="small" data-act="add-cond" data-wpath="${key}">+ Villkor</button>
-      ${this._learnBox(`cond:${key}`, "🎧 Lyssna efter status", "Använd")}
+      ${this._learnBox(`cond:${key}`, `${ICON_WATCH}Bevaka status`, "Använd")}
       ${conds.length ? `<div class="row" style="margin-top:8px">
         <label>Krav<select data-wf="mode" data-wpath="${key}"><option value="all" ${w.mode !== "any" ? "selected" : ""}>Alla (X och Y)</option><option value="any" ${w.mode === "any" ? "selected" : ""}>Något (X eller Y)</option></select></label>
         <label>Max (s)<input type="number" min="1" data-wf="timeout" data-wpath="${key}" value="${esc(w.timeout ?? 60)}" style="width:76px"></label>
@@ -1266,7 +1269,7 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const kind = this._rkind || r.kind || "learn";
     const t = r.trigger;
-    const kinds = [["learn", "🎧 Lyssna"], ["device", "Enhet"], ["entity", "Entitet"], ["event", "Händelse"]];
+    const kinds = [["learn", `${ICON_PRESS}Lyssna`], ["device", "Enhet"], ["entity", "Entitet"], ["event", "Händelse"]];
     let body = "";
     if (kind === "learn") {
       const on = this._learn?.target === "remote";

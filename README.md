@@ -26,9 +26,9 @@ Lägger till fliken **Sekvenser** i sidomenyn. Där ritar du upp din anläggning
 
 Ett trådlöst uttag eller en enhet med en fysisk knapp hittar du genom att trycka på knappen:
 
-- **Flödesschema → 🎧 Lägg till med knapptryck**: skapar ny utrustning med namn och en gissad bild.
-- **I utrustningens inställningar → 🎧 Lyssna**: lägger till entiteten i befintlig utrustning.
-- **Vid väntevillkor → 🎧 Lyssna efter status**: skapar villkoret "vänta tills X = det nya läget".
+- **Utrustning & regler → Schema → Lägg till med knapptryck**: skapar ny utrustning med namn och en gissad bild.
+- **I utrustningens inställningar → Lyssna**: lägger till entiteten i befintlig utrustning.
+- **Vid väntevillkor → Bevaka status**: skapar villkoret "vänta tills X = det nya läget".
 
 ## Mobil
 
