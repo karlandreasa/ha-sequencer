@@ -17,11 +17,20 @@ from homeassistant.helpers.event import async_call_later
 from . import graph, netcontrol
 from .dmx import parse_channels
 from .const import ALL_ZONES, DOMAIN, NODE_OFF_ACTIONS, NODE_ON_ACTIONS, RANKS, ZONE_ACTIONS
+from .i18n import identity, tr, translator
 from .manager import SequencerManager
 
 LEARN_SECONDS = 60
 
 _delay = vol.All(vol.Coerce(float), vol.Range(min=0, max=3600))
+
+
+# Translator for validation messages; set by ws_save before validating.
+_TR = {"fn": identity}
+
+
+def _t(sv: str, **kwargs: Any) -> str:
+    return _TR["fn"](sv, **kwargs)
 
 
 def _action_spec(actions: list[str]):
@@ -31,15 +40,15 @@ def _action_spec(actions: list[str]):
             cv.service(value.get("service") or "")
         elif action == "wol":
             try:
-                netcontrol.normalize_mac(value.get("mac", ""))
+                netcontrol.normalize_mac(value.get("mac", ""), _t)
             except ValueError as err:
                 raise vol.Invalid(str(err)) from err
         elif action == "rpc_shutdown":
             if not value.get("host") or not value.get("username"):
-                raise vol.Invalid("Windows-avstängning kräver värd och användarnamn")
+                raise vol.Invalid(_t("Windows-avstängning kräver värd och användarnamn"))
         elif action == "dmx":
             try:
-                parse_channels(value.get("channels"))
+                parse_channels(value.get("channels"), _t)
             except ValueError as err:
                 raise vol.Invalid(str(err)) from err
         return value
@@ -196,7 +205,7 @@ def _validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     cfg = CONFIG_SCHEMA(raw)
     node_ids = [n["id"] for n in cfg["nodes"]]
     if len(node_ids) != len(set(node_ids)):
-        raise vol.Invalid("Två utrustningar har samma id")
+        raise vol.Invalid(_t("Två utrustningar har samma id"))
     ids = set(node_ids)
     seen_edges = set()
     edges = []
@@ -207,7 +216,7 @@ def _validate_config(raw: dict[str, Any]) -> dict[str, Any]:
             edges.append(e)
     cfg["edges"] = edges
     if graph.has_cycle(cfg):
-        raise vol.Invalid("Kopplingarna bildar en loop – något kan inte startas före sig självt")
+        raise vol.Invalid(_t("Kopplingarna bildar en loop – något kan inte startas före sig självt"))
     for z in cfg["zones"]:
         z["nodes"] = [n for n in z["nodes"] if n in ids]
         if z.get("custom"):
@@ -216,7 +225,7 @@ def _validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     zone_ids = {z["id"] for z in cfg["zones"]}
     for r in cfg["remotes"]:
         if r["target"] != ALL_ZONES and r["target"] not in zone_ids:
-            raise vol.Invalid(f"Fjärrkontrollen '{r['name']}' styr en grupp som inte finns")
+            raise vol.Invalid(_t("Fjärrkontrollen '{name}' styr en grupp som inte finns", name=r["name"]))
     return cfg
 
 
@@ -229,7 +238,7 @@ def async_register(hass: HomeAssistant) -> None:
 def _manager(hass: HomeAssistant, connection, msg) -> SequencerManager | None:
     manager = hass.data.get(DOMAIN)
     if manager is None:
-        connection.send_error(msg["id"], "not_loaded", "Sequencer är inte laddad")
+        connection.send_error(msg["id"], "not_loaded", tr(hass, "Sequencer är inte laddad"))
     return manager
 
 
@@ -247,6 +256,7 @@ def ws_config(hass: HomeAssistant, connection, msg) -> None:
 async def ws_save(hass: HomeAssistant, connection, msg) -> None:
     if (m := _manager(hass, connection, msg)) is None:
         return
+    _TR["fn"] = translator(hass)
     try:
         cfg = _validate_config(msg["config"])
     except vol.Invalid as err:
@@ -288,7 +298,7 @@ async def ws_zone(hass: HomeAssistant, connection, msg) -> None:
     try:
         await m.async_zone(msg["zone_id"], msg["action"])
     except KeyError:
-        connection.send_error(msg["id"], "not_found", "Gruppen finns inte")
+        connection.send_error(msg["id"], "not_found", tr(hass, "Gruppen finns inte"))
         return
     connection.send_result(msg["id"])
 

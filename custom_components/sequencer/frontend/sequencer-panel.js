@@ -1,6 +1,6 @@
 /* Sequencer – sidebar panel for Home Assistant (plain web component, no build step). */
 
-const VERSION = "2.4.0";
+const VERSION = "2.5.0";
 const ALL = "__all__";
 const OFF = ["off", "unavailable", "unknown", "standby"];
 const NODE_W = 150;
@@ -40,6 +40,395 @@ const ICON_PRESS = `<ha-icon class="bi" icon="mdi:gesture-tap-button"></ha-icon>
 const ICON_WATCH = `<ha-icon class="bi" icon="mdi:eye-outline"></ha-icon>`;
 const RANK_LABEL = { first: "Alltid först", normal: "Normal", last: "Alltid sist" };
 const ZONE_ACTION_LABEL = { start: "Starta", stop: "Stäng av", toggle: "Växla på/av" };
+
+/* ---------------------------------------------------------------- i18n
+ * Swedish is the source language. T(swedishText, ...args) returns the English
+ * text from EN when the user's HA language is not Swedish. {0}, {1} … are filled
+ * from args. EN is injected from tools/i18n/en.json by tools/i18n/build.py. */
+let LANG = "en";
+const EN = /*EN_DICT*/{
+ " (varje ändring)": " (every change)",
+ " · sekvens anpassad": " · sequence customised",
+ " – gruppen har ändrats sedan dess": " – the group has changed since then",
+ "\"A startas före B\" betyder också att A stängs av <i>efter</i> B. Reglerna är samma sak som pilarna i flödesschemat.": "\"A starts before B\" also means A turns off <i>after</i> B. The rules are the same as the arrows in the diagram.",
+ "\"Alltid först\" passar t.ex. en mixer eller strömfördelare: den startas före allt annat och stängs av sist. \"Alltid sist\" passar slutsteg.": "\"Always first\" suits e.g. a mixer or power distributor: it starts before everything else and turns off last. \"Always last\" suits amplifiers.",
+ "+ Koppla en knapp": "+ Link a button",
+ "+ Lägg till moment…": "+ Add moment…",
+ "+ Lägg till utrustning": "+ Add equipment",
+ "+ Lägg till utrustning…": "+ Add equipment…",
+ "+ Lägg till…": "+ Add…",
+ "+ Ny egen sekvens": "+ New own sequence",
+ "+ Ny grupp": "+ New group",
+ "+ Villkor": "+ Condition",
+ "1. Kontot ska vara administratör på datorn.": "1. The account must be an administrator on the PC.",
+ "2. Tillåt <i>Fil- och skrivardelning</i> i Windows-brandväggen (port 445).": "2. Allow <i>File and Printer Sharing</i> in Windows Firewall (port 445).",
+ "3. För ett <b>lokalt</b> konto (inte domän/Microsoft-konto): kör som admin": "3. For a <b>local</b> account (not domain/Microsoft account): run as admin",
+ "30 s": "30 s",
+ "<b>1. Utrustning</b> – lägg till din utrustning (mixer, DSP, slutsteg …) och dra pilar mellan dem. En pil betyder att något <i>startas före</i> nästa sak och <i>stängs av efter</i>.": "<b>1. Equipment</b> – add your equipment (mixer, DSP, amplifiers …) and draw arrows between them. An arrow means something is <i>started before</i> the next thing and <i>turned off after</i> it.",
+ "<b>2. Regler</b> (under Utrustning) – finjustera ordning, prioritet (\"alltid först\"), fördröjningar och villkor som \"vänta tills slutsteget rapporterar på\".": "<b>2. Rules</b> (under Equipment) – fine-tune order, priority (\"always first\"), delays and conditions such as \"wait until the amplifier reports on\".",
+ "<b>3. Grupper</b> – skapa t.ex. ett rum per grupp och välj vilken utrustning rummet behöver. Delad utrustning (t.ex. en gemensam mixer) startas när första gruppen startar och stängs av först när sista gruppen stängs av.": "<b>3. Groups</b> – e.g. one group per room, and choose the equipment the room needs. Shared equipment (e.g. a common mixer) starts with the first group and is only turned off when the last group turns off.",
+ "<b>4. Sekvenser</b> – varje grupp får en sekvens automatiskt. Justera den för hand om du vill, eller gör egna sekvenser utan grupper.": "<b>4. Sequences</b> – every group gets a sequence automatically. Adjust it by hand if you like, or create your own sequences without groups.",
+ "<b>5. Fjärrkontroller</b> – koppla knappar direkt till grupper och sekvenser, utan automationer.": "<b>5. Remotes</b> – link buttons directly to groups and sequences, no automations needed.",
+ "<b>Anpassad för hand.</b> Uppdateras inte längre automatiskt.": "<b>Customised by hand.</b> No longer updated automatically.",
+ "<b>Automatisk.</b> Byggs av reglerna och gruppens utrustning och uppdateras av sig själv. Ändrar du något nedan blir den anpassad.": "<b>Automatic.</b> Built from the rules and the group's equipment and updates itself. If you change anything below it becomes customised.",
+ "<b>Automatisk</b> – byggs av reglerna": "<b>Automatic</b> – built from the rules",
+ "<b>Gruppen eller reglerna har ändrats</b> sedan du anpassade sekvensen.": "<b>The group or the rules have changed</b> since you customised the sequence.",
+ "<b>stängs alltid av</b>": "<b>always turned off</b>",
+ "<b>{0}</b> startas före <b>{1}</b> och stängs av efter": "<b>{0}</b> starts before <b>{1}</b> and turns off after",
+ "= värde": "= value",
+ "Aktiv": "Enabled",
+ "Alla": "All",
+ "Alla (X och Y)": "All (X and Y)",
+ "Alla grupper": "All groups",
+ "Alltid först": "Always first",
+ "Alltid först – startas först, stängs av sist": "Always first – starts first, turns off last",
+ "Alltid sist": "Always last",
+ "Alltid sist – startas sist, stängs av först": "Always last – starts last, turns off first",
+ "Anläggningen just nu": "System right now",
+ "Anpassa": "Fit",
+ "Anpassad för hand": "Customised by hand",
+ "Anropa tjänst…": "Call service…",
+ "Använd": "Use",
+ "Användare": "User",
+ "Används av": "Used by",
+ "Art-Net": "Art-Net",
+ "Attribut": "Attribute",
+ "Av": "Off",
+ "Avbryt sekvensen": "Abort the sequence",
+ "Avstängning": "Turning off",
+ "Avstängning (allt):": "Turn-off order (everything):",
+ "Behåll": "Keep",
+ "Behåll min version": "Keep my version",
+ "Bevaka status": "Watch status",
+ "Bild": "Image",
+ "Blinkar långsamt medan sekvensen körs, lyser fast när allt gick bra (släcks efter angiven tid, 0 = lys tills nästa gång) och blinkar snabbt vid fel tills gruppen körs igen.": "Blinks slowly while the sequence runs, stays lit when everything went well (turns off after the given time, 0 = stay lit until next time) and blinks fast on errors until the group runs again.",
+ "Broadcast-adress (valfritt)": "Broadcast address (optional)",
+ "Börja lyssna": "Start listening",
+ "DMX (Art-Net / sACN)": "DMX (Art-Net / sACN)",
+ "DMX – egna värden": "DMX – own values",
+ "DMX – släck samma kanaler": "DMX – turn off the same channels",
+ "DMX-nod": "DMX node",
+ "DMX-scen": "DMX scene",
+ "DSP / processor": "DSP / processor",
+ "Data (JSON)": "Data (JSON)",
+ "Dator": "Computer",
+ "Dator (IP eller namn)": "Computer (IP or name)",
+ "Delas med {0}": "Shared with {0}",
+ "Den automatiska ordningen har ändrats.": "The automatic order has changed.",
+ "Den regeln finns redan.": "That rule already exists.",
+ "Det går inte – då skulle reglerna motsäga varandra (en loop).": "Not possible – the rules would then contradict each other (a loop).",
+ "Det skulle skapa en loop – något kan inte startas före sig självt.": "That would create a loop – something cannot start before itself.",
+ "Det skulle skapa en loop.": "That would create a loop.",
+ "Det som redan är igång (t.ex. från ett annat rum) hoppas över, och sekvensen fortsätter direkt. Tomt väntefält = utrustningens standard.": "Anything already running (e.g. from another room) is skipped and the sequence continues straight away. Empty wait field = the equipment's default.",
+ "Det som redan är igång hoppas över vid start. Switch i HA: {0} (ungefär) när gruppen sparats.": "Anything already running is skipped at start. Switch in HA: {0} (roughly) once the group is saved.",
+ "Dimmerrack": "Dimmer rack",
+ "Direkt": "Instant",
+ "Domän (valfritt)": "Domain (optional)",
+ "Dra en enhet för att flytta den. Dra från den högra punkten till en annan enhet för att koppla ihop dem. Pilen betyder <b>startas före</b> och <b>stängs av efter</b>. Klicka på en pil för att markera den.": "Drag a unit to move it. Drag from the right-hand dot to another unit to connect them. The arrow means <b>started before</b> and <b>turned off after</b>. Click an arrow to select it.",
+ "Dra i en enhet för att flytta den. Tryck på den för att ändra inställningar och kopplingar.": "Drag a unit to move it. Tap it to change settings and connections.",
+ "Dra till en annan enhet för att koppla": "Drag to another unit to connect",
+ "Du har osparade ändringar": "You have unsaved changes",
+ "Efter {0}": "After {0}",
+ "Egen sekvens": "Own sequence",
+ "Egna": "Own",
+ "En grupp kör bara den del av ordningen som den behöver. Se fliken Sekvenser.": "A group only runs the part of the order it needs. See the Sequences tab.",
+ "En grupp saknar namn.": "A group has no name.",
+ "En grupp är t.ex. ett rum eller en zon. Välj vilken utrustning den behöver. Det som krävs före (enligt flödesschemat) tas med automatiskt, och utrustning som delas med en annan grupp som är igång stängs inte av.": "A group is e.g. a room or a zone. Choose the equipment it needs. Whatever is required before it (according to the diagram) is included automatically, and equipment shared with another group that is running is not turned off.",
+ "En sekvens saknar namn.": "A sequence has no name.",
+ "Enhet": "Device",
+ "Enheten har inga knapphändelser. Prova Lyssna eller Entitet.": "The device has no button events. Try Listen or Entity.",
+ "Entitet": "Entity",
+ "Entiteter": "Entities",
+ "Entiteter som styrs": "Controlled entities",
+ "Extra data (JSON)": "Extra data (JSON)",
+ "Fjärrar": "Remotes",
+ "Fjärrkontroll": "Remote",
+ "Fjärrkontroller": "Remotes",
+ "Flera värden separeras med komma, t.ex. <code>on,playing</code>. Tomt värde = vad som helst utom otillgänglig. Attribut är valfritt.": "Separate several values with commas, e.g. <code>on,playing</code>. Empty value = anything except unavailable. Attribute is optional.",
+ "Flytta ned": "Move down",
+ "Flytta upp": "Move up",
+ "Fortsätt ändå": "Continue anyway",
+ "Från grupper": "From groups",
+ "Färg": "Colour",
+ "Färgtemperatur": "Colour temperature",
+ "Fördröjning (s)": "Delay (s)",
+ "Först": "First",
+ "Grupp / sekvens": "Group / sequence",
+ "Grupp {0}": "Group {0}",
+ "Grupp · anpassad": "Group · customised",
+ "Grupp · automatisk": "Group · automatic",
+ "Gruppen har ändrats": "The group has changed",
+ "Gruppens utrustning →": "The group's equipment →",
+ "Grupper": "Groups",
+ "Gör": "Do",
+ "Hämtar…": "Loading…",
+ "Händelse": "Event",
+ "Händelsedata som ska matcha (JSON)": "Event data to match (JSON)",
+ "Händelsetyp": "Event type",
+ "Håll muspekaren över en grupp för att se vilken utrustning den använder. Färgprickarna visar vilka grupper som delar på en enhet.": "Hover over a group to see which equipment it uses. The coloured dots show which groups share a unit.",
+ "Högtalare": "Speaker",
+ "IP till DMX-noden (tomt = broadcast/multicast)": "IP of the DMX node (empty = broadcast/multicast)",
+ "Igång · ": "Running · ",
+ "Ikon": "Icon",
+ "Inga grupper ännu.": "No groups yet.",
+ "Inga knappar kopplade ännu.": "No buttons linked yet.",
+ "Inga knappar kopplade ännu. Koppla knappar på fjärrkontroller direkt till grupperna – tryck på Lyssna och sedan på knappen.": "No buttons linked yet. Link remote buttons directly to the groups – press Listen and then the button.",
+ "Inga regler ännu.": "No rules yet.",
+ "Inga steg.": "No steps.",
+ "Ingen grupp ännu": "No group yet",
+ "Ingen knapp vald än": "No button chosen yet",
+ "Ingen utrustning ännu.": "No equipment yet.",
+ "Ingen åtgärd": "No action",
+ "Ingår inte längre automatiskt: {0}": "No longer included automatically: {0}",
+ "Kan inte tolka \"{0}\" – skriv t.ex. 1=255, 2-4=50%": "Cannot parse \"{0}\" – write e.g. 1=255, 2-4=50%",
+ "Kanal utanför 1–512 i \"{0}\"": "Channel outside 1–512 in \"{0}\"",
+ "Kanaler och värden": "Channels and values",
+ "Klar": "Done",
+ "Klicka på <b>+ Lägg till utrustning</b> för att börja.": "Click <b>+ Add equipment</b> to get started.",
+ "Knapp": "Button",
+ "Knapp / händelse": "Button / event",
+ "Kom igång": "Get started",
+ "Konfigurationen ändrades någon annanstans. Spara skriver över den.": "The configuration was changed elsewhere. Saving will overwrite it.",
+ "Koppla knappar på fjärrkontroller (Zigbee, Z-Wave, Hue, Shelly, IKEA …) direkt till grupperna. Enklast är <b>Lyssna</b>: tryck på knappen så hittar panelen den åt dig.": "Link remote buttons (Zigbee, Z-Wave, Hue, Shelly, IKEA …) directly to the groups. The easiest way is <b>Listen</b>: press the button and the panel finds it for you.",
+ "Kopplingar": "Connections",
+ "Kopplingen finns redan.": "The connection already exists.",
+ "Kors": "Cross",
+ "Krav": "Require",
+ "Kunde inte ladda: {0}": "Could not load: {0}",
+ "Kunde inte spara: {0}": "Could not save: {0}",
+ "LED-entitet": "LED entity",
+ "LED-entitet (light/switch)": "LED entity (light/switch)",
+ "Ljus": "Light",
+ "Ljusbord": "Lighting console",
+ "Ljusstyrka:": "Brightness:",
+ "Lyssna": "Listen",
+ "Lyssna – tryck på knappen på enheten": "Listen – press the button on the device",
+ "Lyssnar… {0} s": "Listening… {0} s",
+ "Lyssnar… {0} s · Sluta": "Listening… {0} s · Stop",
+ "Lyssnar… {0} s – klicka för att sluta": "Listening… {0} s – click to stop",
+ "Lägg till": "Add",
+ "Lägg till entitet…": "Add entity…",
+ "Lägg till med knapptryck": "Add by button press",
+ "Lägg till minst en light-entitet ovan.": "Add at least one light entity above.",
+ "Lägg till regel": "Add rule",
+ "Lägg till saknade på föreslagen plats": "Add missing at the suggested position",
+ "Lägg till utrustning i <b>Schema</b> först.": "Add equipment in <b>Diagram</b> first.",
+ "Lägg till utrustning under fliken <b>Utrustning & regler</b>.": "Add equipment on the <b>Equipment & rules</b> tab.",
+ "Långsamt 10 s": "Slow 10 s",
+ "Lösenord": "Password",
+ "MAC-adress": "MAC address",
+ "Mikrofon": "Microphone",
+ "Mixer": "Mixer",
+ "Mjukt 3 s": "Soft 3 s",
+ "Moment": "Moment",
+ "Moment (färg, paus, DMX-scen …) följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de den inte heller – den fortsätter följa reglerna.": "Moments (colour, pause, DMX scene …) follow no rules and never give warnings. In an automatic sequence they don't lock it either – it keeps following the rules.",
+ "Moving head": "Moving head",
+ "Namn": "Name",
+ "Namnlös knapp": "Unnamed button",
+ "Normal": "Normal",
+ "Normal – följer pilarna": "Normal – follows the arrows",
+ "När knappen trycks": "When the button is pressed",
+ "När läget blir (tomt = varje ändring)": "When the state becomes (empty = every change)",
+ "Nätverk": "Network",
+ "Något (X eller Y)": "Any (X or Y)",
+ "Om tiden går ut": "On timeout",
+ "Ordning": "Order",
+ "PAR-lampa": "PAR can",
+ "Paus": "Pause",
+ "Placering": "Position",
+ "Port": "Port",
+ "Prioritet": "Priority",
+ "Prioritet, fördröjningar och villkor": "Priority, delays and conditions",
+ "Projektor": "Projector",
+ "Protokoll": "Protocol",
+ "På": "On",
+ "Påslag": "Turning on",
+ "Receiver": "Receiver",
+ "Regeln säger att {0} startas före": "The rule says {0} starts first",
+ "Regeln säger att {0} stängs av före": "The rule says {0} turns off first",
+ "Regler": "Rules",
+ "Resultat": "Result",
+ "Saknas: {0}": "Missing: {0}",
+ "Samma krav som för <code>shutdown /s /m \\\\dator</code>. Första gången installeras ett hjälpbibliotek i HA (kan ta en minut). Lösenordet sparas i HA:s lagring.": "Same requirements as <code>shutdown /s /m \\\\pc</code>. The first time, a helper library is installed in HA (may take a minute). The password is stored in HA's storage.",
+ "Schema": "Diagram",
+ "Sekunder": "Seconds",
+ "Sekvens": "Sequence",
+ "Sekvens {0}": "Sequence {0}",
+ "Sekvens: ": "Sequence: ",
+ "Sekvenser": "Sequences",
+ "Sekvensstyrning": "Sequencer",
+ "Skapa en grupp först.": "Create a group first.",
+ "Skapa grupper så får de sekvenser automatiskt, eller gör en egen sekvens för hand.": "Create groups and they get sequences automatically, or make your own sequence by hand.",
+ "Slutsteg": "Amplifier",
+ "Släck / dimma ner ljus": "Turn off / dim down light",
+ "Släck efter (min)": "Turn off after (min)",
+ "Släcker kanalerna som påslaget tänder.": "Turns off the channels that turning on lights up.",
+ "Slå på": "Turn on",
+ "Slå på entiteterna": "Turn on the entities",
+ "Slå på nu": "Turn on now",
+ "Snabbt 1 s": "Fast 1 s",
+ "Spara": "Save",
+ "Sparat ✓": "Saved ✓",
+ "Start": "Start",
+ "Start:": "Start:",
+ "Starta": "Start",
+ "Starta om i stället för att stänga av": "Restart instead of shutting down",
+ "Startar": "Starting",
+ "Startar…": "Starting…",
+ "Startas <b>efter</b> (och stängs av före):": "Starts <b>after</b> (and turns off before):",
+ "Startas <b>före</b> (och stängs av efter):": "Starts <b>before</b> (and turns off after):",
+ "Startordning (allt):": "Start order (everything):",
+ "Status-LED": "Status LED",
+ "Status-LED (valfritt)": "Status LED (optional)",
+ "Streamer / spelare": "Streamer / player",
+ "Strålkastare": "Spotlight",
+ "Strömfördelare": "Power distributor",
+ "Styrning": "Control",
+ "Stäng": "Close",
+ "Stäng av": "Turn off",
+ "Stäng av Windows-dator (RPC)": "Shut down Windows PC (RPC)",
+ "Stäng av allt": "Turn everything off",
+ "Stäng av entiteterna": "Turn off the entities",
+ "Stäng av nu": "Turn off now",
+ "Stänga av datorn {0} nu?": "Shut down the computer {0} now?",
+ "Stänger av": "Turning off",
+ "Stänger av…": "Turning off…",
+ "Subwoofer": "Subwoofer",
+ "Så förbereder du Windows-datorn": "How to prepare the Windows PC",
+ "T.ex. Fjärr vardagsrum – PÅ": "E.g. Living room remote – ON",
+ "T.ex. Gudstjänst": "E.g. Sunday service",
+ "T.ex. Slutsteg kök": "E.g. Kitchen amplifier",
+ "T.ex. Vardagsrum": "E.g. Living room",
+ "TV / skärm": "TV / display",
+ "Ta bort": "Remove",
+ "Ta bort \"{0}\"?": "Remove \"{0}\"?",
+ "Ta bort grupp": "Remove group",
+ "Ta bort gruppen \"{0}\"?": "Remove the group \"{0}\"?",
+ "Ta bort koppling": "Remove connection",
+ "Ta bort moment": "Remove moment",
+ "Ta bort sekvensen": "Remove the sequence",
+ "Ta bort sekvensen \"{0}\"?": "Remove the sequence \"{0}\"?",
+ "Ta bort steg": "Remove step",
+ "Ta bort utrustning": "Remove equipment",
+ "Ta bort vald koppling": "Remove selected connection",
+ "Takhögtalare": "Ceiling speaker",
+ "Temperatur:": "Temperature:",
+ "Test misslyckades: {0}": "Test failed: {0}",
+ "Testa": "Test",
+ "Tillbaka": "Back",
+ "Tips: lägg till en ping-sensor (binary_sensor) för datorn som entitet ovan. Då visas om den är igång, och du kan använda \"vänta tills\" för nästa steg.": "Tip: add a ping sensor (binary_sensor) for the computer as an entity above. Its status is then shown, and you can use \"wait until\" for the next step.",
+ "Tjänst": "Service",
+ "Tryck på knappen nu. Allt som ändrar läge visas här.": "Press the button now. Everything that changes state is shown here.",
+ "Tryck på knappen på fjärrkontrollen. Allt som händer visas nedan – välj rätt rad.": "Press the button on the remote. Everything that happens is shown below – choose the right row.",
+ "Tryck på knappen på uttaget eller enheten du vill lägga till. Allt som ändrar läge visas här.": "Press the button on the plug or device you want to add. Everything that changes state is shown here.",
+ "Tvinga stängning av öppna program": "Force-close open programs",
+ "Tänd / dimma ljus": "Light up / dim",
+ "Universum": "Universe",
+ "Utrustning": "Equipment",
+ "Utrustning & regler": "Equipment & rules",
+ "Utrustning som en annan grupp eller sekvens fortfarande använder hoppas över – om du inte kryssar i ”stäng alltid av”.": "Equipment still used by another group or sequence is skipped – unless you tick ”always turn off”.",
+ "Utrustning som gruppen behöver": "Equipment the group needs",
+ "Varje grupp får en sekvens automatiskt utifrån reglerna. Du kan justera den för hand – då markeras den med en gul prick. Du kan också skapa egna sekvenser helt utan grupper.": "Every group gets a sequence automatically from the rules. You can adjust it by hand – it is then marked with a yellow dot. You can also create your own sequences without any groups.",
+ "Villkor…": "Conditions…",
+ "Visa och ändra sekvensen →": "View and edit the sequence →",
+ "Välj LED": "Choose LED",
+ "Välj det som är unikt för gruppen, t.ex. rummets slutsteg. Det som måste vara igång före tas med automatiskt (streckad ram).": "Choose what is unique to the group, e.g. the room's amplifier. Whatever must be running before it is included automatically (dashed frame).",
+ "Välj enhet…": "Choose device…",
+ "Välj entitet…": "Choose entity…",
+ "Välj färg": "Choose colour",
+ "Välj knapp, event eller action-sensor": "Choose button, event or action sensor",
+ "Välj två olika utrustningar.": "Choose two different pieces of equipment.",
+ "Välj utrustning ovan.": "Choose equipment above.",
+ "Välj…": "Choose…",
+ "Vänta efter av (s)": "Wait after off (s)",
+ "Vänta efter avstängning (s)": "Wait after turning off (s)",
+ "Vänta efter på (s)": "Wait after on (s)",
+ "Vänta efter påslag (s)": "Wait after turning on (s)",
+ "Vänta innan avstängning tills…": "Before turning off, wait until…",
+ "Vänta innan påslag tills…": "Before turning on, wait until…",
+ "Vänta tills faden är klar": "Wait for the fade to finish",
+ "Vänta tills övergången är klar": "Wait for the transition to finish",
+ "Vänta tills övergången är klar innan nästa steg": "Wait for the transition to finish before the next step",
+ "Vänta tills…": "Wait until…",
+ "Väntar innan påslag på": "Before turning on, waits for",
+ "Väntar på": "Waits for",
+ "Värde 0–255 eller procent. Intervall med bindestreck, t.ex. <code>1-12=100%</code>.": "Value 0–255 or percent. Ranges with a hyphen, e.g. <code>1-12=100%</code>.",
+ "Värde utanför 0–255 i \"{0}\"": "Value outside 0–255 in \"{0}\"",
+ "Växla på/av": "Toggle on/off",
+ "Wake on LAN (starta dator)": "Wake on LAN (start computer)",
+ "Zooma in": "Zoom in",
+ "Zooma ut": "Zoom out",
+ "ange minst en kanal": "enter at least one channel",
+ "attribut": "attribute",
+ "automatiskt": "automatically",
+ "av": "off",
+ "delas med {0}": "shared with {0}",
+ "eller": "or",
+ "gruppen har ändrats sedan dess": "the group has changed since then",
+ "hoppas över om den är igång": "skipped if it is running",
+ "händelse": "event",
+ "inga kanaler": "no channels",
+ "ingen entitet vald": "no entity selected",
+ "ingen lampa vald": "no light selected",
+ "ingen tjänst vald": "no service selected",
+ "längd": "length",
+ "moment": "moment",
+ "något": "anything",
+ "och": "and",
+ "sACN (E1.31)": "sACN (E1.31)",
+ "sist ⑨": "last ⑨",
+ "startas alltid före": "always starts before",
+ "stäng alltid av": "always turn off",
+ "t.ex. media_player.select_source": "e.g. media_player.select_source",
+ "t.ex. on, single, 1_single": "e.g. on, single, 1_single",
+ "t.ex. scene.turn_on": "e.g. scene.turn_on",
+ "t.ex. zha_event, deconz_event, hue_event": "e.g. zha_event, deconz_event, hue_event",
+ "tryckt": "pressed",
+ "utrustningen": "the equipment",
+ "vänta": "wait",
+ "väntar på villkor först": "waits for conditions first",
+ "väntar på {0}": "waiting for {0}",
+ "{0} enheter": "{0} units",
+ "{0} finns redan i schemat.": "{0} is already in the diagram.",
+ "{0} steg": "{0} steps",
+ "{0} villkor": "{0} conditions",
+ "{0} – körs ändå i din ordning": "{0} – runs in your order anyway",
+ "{0}: ange dator och användare för Windows-avstängning.": "{0}: enter computer and user for Windows shutdown.",
+ "{0}: ange händelsetyp.": "{0}: enter an event type.",
+ "{0}: ange tjänst som domän.tjänst.": "{0}: enter the service as domain.service.",
+ "{0}: extra data måste vara ett JSON-objekt.": "{0}: extra data must be a JSON object.",
+ "{0}: ogiltig JSON.": "{0}: invalid JSON.",
+ "{0}: ogiltig LED-entitet.": "{0}: invalid LED entity.",
+ "{0}: ogiltig MAC-adress.": "{0}: invalid MAC address.",
+ "{0}: ogiltig entitet \"{1}\" i villkor.": "{0}: invalid entity \"{1}\" in condition.",
+ "{0}: välj entitet att vänta på.": "{0}: choose an entity to wait for.",
+ "Ändra": "Edit",
+ "Ändringar börjar gälla när du sparar.": "Changes take effect when you save.",
+ "Ångra": "Undo",
+ "Återställ till automatisk": "Reset to automatic",
+ "Återställa till den automatiska sekvensen? Dina ändringar försvinner.": "Reset to the automatic sequence? Your changes will be lost.",
+ "Öppna flödesschemat": "Open the flow chart",
+ "Övergång": "Transition",
+ "Övrigt": "Other",
+ "ändrad för hand": "changed by hand",
+ "⏳ Vänta tills…": "⏳ Wait until…",
+ "⏸ Paus": "⏸ Pause",
+ "⏻ Slå på entitet": "⏻ Turn on entity",
+ "① först": "① first",
+ "⚙ Tjänst": "⚙ Service",
+ "⭘ Stäng av entitet": "⭘ Turn off entity",
+ "🎚 DMX-scen": "🎚 DMX scene",
+ "💡 Ljus: färg / dimning": "💡 Light: colour / dimming"
+}/*END_EN_DICT*/;
+function T(sv, ...args) {
+  let s = LANG === "sv" ? sv : (EN[sv] ?? sv);
+  if (args.length) s = s.replace(/\{(\d+)\}/g, (m, i) => (args[i] ?? ""));
+  return s;
+}
+function langFromHass(hass) {
+  const l = String(hass?.locale?.language || hass?.language || "en").toLowerCase();
+  return l.startsWith("sv") ? "sv" : "en";
+}
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -139,8 +528,8 @@ function ruleWarnings(cfg, steps, which) {
   const warn = {};
   for (const e of cfg.edges) {
     if (!(e.from in idx) || !(e.to in idx)) continue;
-    if (which === "start" && idx[e.to] < idx[e.from]) (warn[e.to] ||= []).push(`Regeln säger att ${name(e.from)} startas före`);
-    if (which === "stop" && idx[e.from] < idx[e.to]) (warn[e.from] ||= []).push(`Regeln säger att ${name(e.to)} stängs av före`);
+    if (which === "start" && idx[e.to] < idx[e.from]) (warn[e.to] ||= []).push(T("Regeln säger att {0} startas före", name(e.from)));
+    if (which === "stop" && idx[e.from] < idx[e.to]) (warn[e.from] ||= []).push(T("Regeln säger att {0} stängs av före", name(e.to)));
   }
   return warn;
 }
@@ -168,10 +557,10 @@ function parseChannels(text) {
   for (let part of String(text || "").split(/[,;\n]+/)) {
     part = part.trim(); if (!part) continue;
     const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?\s*[=:]\s*(\d+(?:[.,]\d+)?)\s*(%)?$/);
-    if (!m) throw new Error(`Kan inte tolka "${part}" – skriv t.ex. 1=255, 2-4=50%`);
+    if (!m) throw new Error(T("Kan inte tolka \"{0}\" – skriv t.ex. 1=255, 2-4=50%", part));
     const a = +m[1], b = +(m[2] || m[1]); let v = parseFloat(m[3].replace(",", ".")); if (m[4]) v = v * 255 / 100;
-    if (!(a >= 1 && a <= b && b <= 512)) throw new Error(`Kanal utanför 1–512 i "${part}"`);
-    if (!(v >= 0 && v <= 255)) throw new Error(`Värde utanför 0–255 i "${part}"`);
+    if (!(a >= 1 && a <= b && b <= 512)) throw new Error(T("Kanal utanför 1–512 i \"{0}\"", part));
+    if (!(v >= 0 && v <= 255)) throw new Error(T("Värde utanför 0–255 i \"{0}\"", part));
     for (let c = a; c <= b; c++) out[c] = Math.round(v);
   }
   return out;
@@ -417,6 +806,8 @@ class SequencerPanel extends HTMLElement {
   set hass(hass) {
     const first = !this._hass;
     this._hass = hass;
+    const lang = langFromHass(hass);
+    if (lang !== LANG) { LANG = lang; if (!first) this._render(); }
     if (this._menu) this._menu.hass = hass;
     if (first) { this._build(); this._connect(); }
     else this._onHassUpdate();
@@ -482,7 +873,7 @@ class SequencerPanel extends HTMLElement {
       this._live = res.state;
       if (!this._dirty) this._resetDraft();
       this._render();
-    } catch (err) { this._toast(`Kunde inte ladda: ${err.message || err}`, true); }
+    } catch (err) { this._toast(T("Kunde inte ladda: {0}", err.message || err), true); }
   }
 
   _onEvent(ev) {
@@ -530,7 +921,8 @@ class SequencerPanel extends HTMLElement {
 
   _markDirty() { this._dirty = true; this._saveError = null; this._renderSaveBar(); }
 
-  _toast(msg, isErr) {
+  _toast(msgSv, isErr) {
+    const msg = T(msgSv);
     if (isErr) this._saveError = msg;
     else {
       this._toastMsg = msg;
@@ -563,8 +955,10 @@ class SequencerPanel extends HTMLElement {
   }
 
   _doRender() {
-    const tabs = [["control", "Styrning", "Styrning", "mdi:play-circle-outline"], ["flow", "Utrustning & regler", "Utrustning", "mdi:sitemap-outline"],
-      ["zones", "Grupper", "Grupper", "mdi:speaker-multiple"], ["seqs", "Sekvenser", "Sekvenser", "mdi:playlist-play"], ["remotes", "Fjärrkontroller", "Fjärrar", "mdi:remote"]];
+    const title = this.shadowRoot.querySelector(".toolbar .title");
+    if (title) title.textContent = T("Sekvensstyrning");
+    const tabs = [["control", T("Styrning"), T("Styrning"), "mdi:play-circle-outline"], ["flow", T("Utrustning & regler"), T("Utrustning"), "mdi:sitemap-outline"],
+      ["zones", T("Grupper"), T("Grupper"), "mdi:speaker-multiple"], ["seqs", T("Sekvenser"), T("Sekvenser"), "mdi:playlist-play"], ["remotes", T("Fjärrkontroller"), T("Fjärrar"), "mdi:remote"]];
     this.shadowRoot.getElementById("tabs").innerHTML = tabs
       .map(([k, l, short, icon]) => `<button class="tab ${this._tab === k ? "sel" : ""}" data-act="tab" data-tab="${k}"><ha-icon icon="${icon}"></ha-icon><span>${this._mobile ? short : l}</span></button>`).join("");
 
@@ -609,11 +1003,11 @@ class SequencerPanel extends HTMLElement {
     const bar = this.shadowRoot.getElementById("savebar");
     if (!bar) return;
     const msg = this._saveError || this._toastMsg ||
-      (this._external ? "Konfigurationen ändrades någon annanstans. Spara skriver över den." : this._dirty ? "Du har osparade ändringar" : "");
+      (this._external ? T("Konfigurationen ändrades någon annanstans. Spara skriver över den.") : this._dirty ? T("Du har osparade ändringar") : "");
     bar.classList.toggle("show", !!msg);
     if (!msg) return;
     bar.innerHTML = `<span class="msg ${this._saveError ? "err" : ""}">${esc(msg)}</span>
-      ${this._dirty ? `<button data-act="revert">Ångra</button><button class="primary" data-act="save">Spara</button>` : this._saveError ? `<button data-act="close-bar">OK</button>` : ""}`;
+      ${this._dirty ? `<button data-act="revert">${T("Ångra")}</button><button class="primary" data-act="save">${T("Spara")}</button>` : this._saveError ? `<button data-act="close-bar">OK</button>` : ""}`;
   }
 
   /* --------------------------------------------------------- live status */
@@ -649,12 +1043,12 @@ class SequencerPanel extends HTMLElement {
     this._main.querySelectorAll("[data-zbadge]").forEach((el) => {
       const id = el.dataset.zbadge; const op = ops[id]?.op;
       el.className = `badge ${op ? "busy" : active.has(id) ? "on" : ""}`;
-      el.textContent = op === "starting" ? "Startar…" : op === "stopping" ? "Stänger av…" : active.has(id) ? "På" : "Av";
+      el.textContent = op === "starting" ? T("Startar…") : op === "stopping" ? T("Stänger av…") : active.has(id) ? T("På") : T("Av");
     });
     this._main.querySelectorAll("[data-zled]").forEach((el) => { el.dataset.mode = (this._live.leds || {})[el.dataset.zled] || "off"; });
     this._main.querySelectorAll("[data-zinfo]").forEach((el) => {
       const id = el.dataset.zinfo;
-      el.innerHTML = this._opInfo(id, (active.has(id) ? "Igång · " : "") + (el.dataset.default || ""));
+      el.innerHTML = this._opInfo(id, (active.has(id) ? T("Igång · ") : "") + (el.dataset.default || ""));
     });
 
     const now = Date.now() / 1000;
@@ -673,8 +1067,8 @@ class SequencerPanel extends HTMLElement {
     if (!op) return esc(fallback);
     let html = "";
     if (op.op) {
-      html += `${op.op === "starting" ? "Startar" : "Stänger av"}${op.node ? `: <b>${esc(op.node)}</b>` : "…"}`;
-      if (op.waiting) html += ` · väntar på ${esc(op.waiting)}`;
+      html += `${op.op === "starting" ? T("Startar") : T("Stänger av")}${op.node ? `: <b translate="no">${esc(op.node)}</b>` : "…"}`;
+      if (op.waiting) html += ` · ${T("väntar på {0}", esc(op.waiting))}`;
       if (op.wait_until) html += ` · <span data-until="${op.wait_until}"></span> s`;
     } else html = esc(fallback);
     if (op.errors?.length) html += `<div class="err">⚠ ${op.errors.map(esc).join("<br>⚠ ")}</div>`;
@@ -701,7 +1095,7 @@ class SequencerPanel extends HTMLElement {
   _diagram(src, { editable = false, highlight = null, dimOthers = false } = {}) {
     const cfg = this._cfg(src);
     if (!cfg.nodes.length) {
-      return `<div class="empty">Ingen utrustning ännu.${editable ? "<br>Klicka på <b>+ Lägg till utrustning</b> för att börja." : "<br>Lägg till utrustning under fliken <b>Flödesschema</b>."}</div>`;
+      return `<div class="empty">${T("Ingen utrustning ännu.")}<br>${editable ? T("Klicka på <b>+ Lägg till utrustning</b> för att börja.") : T("Lägg till utrustning under fliken <b>Utrustning & regler</b>.")}</div>`;
     }
     const w = Math.max(...cfg.nodes.map((n) => n.x)) + NODE_W + (editable ? 260 : 60);
     const h = Math.max(...cfg.nodes.map((n) => n.y)) + NODE_H + (editable ? 160 : 40);
@@ -722,12 +1116,12 @@ class SequencerPanel extends HTMLElement {
         : n.on?.action === "wol" ? "Wake on LAN" : "endast i schemat";
       const cls = ["node", this._sel.node === n.id && editable ? "sel" : "", hlSet?.has(n.id) ? "hl" : "", dimOthers && hlSet && !hlSet.has(n.id) ? "dim" : ""].join(" ");
       return `<div class="${cls}" data-id="${esc(n.id)}" style="left:${n.x}px;top:${n.y}px;--hlc:${hlColor}">
-        ${n.rank && n.rank !== "normal" ? `<span class="rank">${n.rank === "first" ? "① först" : "sist ⑨"}</span>` : ""}
+        ${n.rank && n.rank !== "normal" ? `<span class="rank">${n.rank === "first" ? T("① först") : T("sist ⑨")}</span>` : ""}
         <div class="dots">${(zoneDots[n.id] || []).map((c) => `<span class="dot" style="background:${c}"></span>`).join("")}</div>
         <div class="img">${img[1]}</div>
-        <div class="nname">${esc(n.name || img[0])}</div>
+        <div class="nname" translate="no">${esc(n.name || T(img[0]))}</div>
         <div class="nsub">${esc(sub)}</div>
-        ${editable ? `<div class="port port-in"></div><div class="port port-out" title="Dra till en annan enhet för att koppla"></div>` : ""}
+        ${editable ? `<div class="port port-in"></div><div class="port port-out" title="${T("Dra till en annan enhet för att koppla")}"></div>` : ""}
       </div>`;
     }).join("");
     const dg = `${src}-${editable ? "e" : "v"}-${this._tab}`;
@@ -736,8 +1130,8 @@ class SequencerPanel extends HTMLElement {
   }
 
   _zoomBar() {
-    return `<div class="tools" style="margin:8px 8px 0"><span class="hint zhint">${this._mobile ? "Dra i en enhet för att flytta den. Tryck på den för att ändra inställningar och kopplingar." : ""}</span>
-      <div class="zoom"><button data-act="zoom" data-z="out" title="Zooma ut">−</button><button data-act="zoom" data-z="fit" title="Anpassa">⤢</button><button data-act="zoom" data-z="in" title="Zooma in">+</button></div></div>`;
+    return `<div class="tools" style="margin:8px 8px 0"><span class="hint zhint">${this._mobile ? T("Dra i en enhet för att flytta den. Tryck på den för att ändra inställningar och kopplingar.") : ""}</span>
+      <div class="zoom"><button data-act="zoom" data-z="out" title="${T("Zooma ut")}">−</button><button data-act="zoom" data-z="fit" title="${T("Anpassa")}">⤢</button><button data-act="zoom" data-z="in" title="${T("Zooma in")}">+</button></div></div>`;
   }
 
   _fitDiagrams() {
@@ -780,7 +1174,7 @@ class SequencerPanel extends HTMLElement {
 
   _sideWrap(title, inner, closeAct) {
     if (!this._mobile) return `<div class="card side">${inner}</div>`;
-    return `<div class="sheet"><div class="sheet-head"><button data-act="${closeAct}">‹ Tillbaka</button><b>${esc(title)}</b></div>
+    return `<div class="sheet"><div class="sheet-head"><button data-act="${closeAct}">‹ ${T("Tillbaka")}</button><b>${esc(title)}</b></div>
       <div class="sheet-body"><div class="card">${inner}</div></div></div>`;
   }
 
@@ -788,62 +1182,60 @@ class SequencerPanel extends HTMLElement {
   _controlTab() {
     const cfg = this._config;
     if (!cfg.zones.length) {
-      return `<div class="content"><div class="card"><h2>Kom igång</h2><div class="hint" style="font-size:14px">
-        <p><b>1. Utrustning</b> – lägg till din utrustning (mixer, DSP, slutsteg …) och dra pilar mellan dem.
-        En pil betyder att något <i>startas före</i> nästa sak och <i>stängs av efter</i>.</p>
-        <p><b>2. Regler</b> (under Utrustning) – finjustera ordning, prioritet ("alltid först"), fördröjningar och villkor som "vänta tills slutsteget rapporterar på".</p>
-        <p><b>3. Grupper</b> – skapa t.ex. ett rum per grupp och välj vilken utrustning rummet behöver. Delad utrustning (t.ex. en gemensam mixer) startas när första gruppen startar och stängs av först när sista gruppen stängs av.</p>
-        <p><b>4. Sekvenser</b> – varje grupp får en sekvens automatiskt. Justera den för hand om du vill, eller gör egna sekvenser utan grupper.</p>
-        <p><b>5. Fjärrkontroller</b> – koppla knappar direkt till grupper och sekvenser, utan automationer.</p></div>
-        <div class="btns"><button class="primary" data-act="tab" data-tab="flow">Öppna flödesschemat</button></div></div>
+      return `<div class="content"><div class="card"><h2>${T("Kom igång")}</h2><div class="hint" style="font-size:14px">
+        <p>${T("<b>1. Utrustning</b> – lägg till din utrustning (mixer, DSP, slutsteg …) och dra pilar mellan dem. En pil betyder att något <i>startas före</i> nästa sak och <i>stängs av efter</i>.")}</p>
+        <p>${T("<b>2. Regler</b> (under Utrustning) – finjustera ordning, prioritet (\"alltid först\"), fördröjningar och villkor som \"vänta tills slutsteget rapporterar på\".")}</p>
+        <p>${T("<b>3. Grupper</b> – skapa t.ex. ett rum per grupp och välj vilken utrustning rummet behöver. Delad utrustning (t.ex. en gemensam mixer) startas när första gruppen startar och stängs av först när sista gruppen stängs av.")}</p>
+        <p>${T("<b>4. Sekvenser</b> – varje grupp får en sekvens automatiskt. Justera den för hand om du vill, eller gör egna sekvenser utan grupper.")}</p>
+        <p>${T("<b>5. Fjärrkontroller</b> – koppla knappar direkt till grupper och sekvenser, utan automationer.")}</p></div>
+        <div class="btns"><button class="primary" data-act="tab" data-tab="flow">${T("Öppna flödesschemat")}</button></div></div>
         ${cfg.nodes.length ? `<div class="card pad0">${this._diagram("config")}</div>` : ""}</div>`;
     }
     const cards = cfg.zones.map((z, i) => {
       const col = z.color || ZONE_COLORS[i % ZONE_COLORS.length];
       const n = zoneNeeds(cfg, z.id).size;
       return `<div class="card zone-card ${this._hl === z.id ? "hl" : ""}" data-zone="${esc(z.id)}" style="--zc:${col}">
-        <div class="zc-head"><ha-icon icon="${esc(z.icon || (z.standalone ? "mdi:playlist-play" : "mdi:speaker-multiple"))}"></ha-icon><span class="zc-name">${esc(z.name)}</span>${z.led ? `<span class="led" data-zled="${esc(z.id)}" title="Status-LED"></span>` : ""}<span class="badge" data-zbadge="${esc(z.id)}"></span></div>
-        <div class="zc-info" data-zinfo="${esc(z.id)}" data-default="${n} enheter"></div>
-        <div class="btns"><button class="primary" data-act="zone" data-id="${esc(z.id)}" data-action="start">▶ Starta</button>
-          <button data-act="zone" data-id="${esc(z.id)}" data-action="stop">■ Stäng av</button></div></div>`;
+        <div class="zc-head"><ha-icon icon="${esc(z.icon || (z.standalone ? "mdi:playlist-play" : "mdi:speaker-multiple"))}"></ha-icon><span class="zc-name" translate="no">${esc(z.name)}</span>${z.led ? `<span class="led" data-zled="${esc(z.id)}" title="Status-LED"></span>` : ""}<span class="badge" data-zbadge="${esc(z.id)}"></span></div>
+        <div class="zc-info" data-zinfo="${esc(z.id)}" data-default="${T("{0} enheter", n)}"></div>
+        <div class="btns"><button class="primary" data-act="zone" data-id="${esc(z.id)}" data-action="start">▶ ${T("Starta")}</button>
+          <button data-act="zone" data-id="${esc(z.id)}" data-action="stop">■ ${T("Stäng av")}</button></div></div>`;
     }).join("");
     return `<div class="content wide">
       <div class="zone-grid">${cards}</div>
-      <div class="row-between"><h2>Anläggningen just nu</h2>
+      <div class="row-between"><h2>${T("Anläggningen just nu")}</h2>
         <div style="display:flex;gap:10px;align-items:center"><span class="hint" data-zinfo="${ALL}" data-default=""></span>
-        <button class="danger" data-act="zone" data-id="${ALL}" data-action="stop">⏻ Stäng av allt</button></div></div>
+        <button class="danger" data-act="zone" data-id="${ALL}" data-action="stop">⏻ ${T("Stäng av allt")}</button></div></div>
       <div class="card pad0">${this._diagram("config", { highlight: this._hl, dimOthers: true })}</div>
-      <div class="hint">Håll muspekaren över en grupp för att se vilken utrustning den använder. Färgprickarna visar vilka grupper som delar på en enhet.</div>
+      <div class="hint">${T("Håll muspekaren över en grupp för att se vilken utrustning den använder. Färgprickarna visar vilka grupper som delar på en enhet.")}</div>
     </div>`;
   }
 
   /* ------------------------------------------------------------ tab: flow */
   _subNav() {
     const sub = this._sub || "schema";
-    return `<div class="seg sub-nav"><button class="${sub === "schema" ? "sel" : ""}" data-act="sub" data-sub="schema">Schema</button><button class="${sub === "rules" ? "sel" : ""}" data-act="sub" data-sub="rules">Regler</button></div>`;
+    return `<div class="seg sub-nav"><button class="${sub === "schema" ? "sel" : ""}" data-act="sub" data-sub="schema">${T("Schema")}</button><button class="${sub === "rules" ? "sel" : ""}" data-act="sub" data-sub="rules">${T("Regler")}</button></div>`;
   }
 
   _flowTab() {
     const node = this._draft.nodes.find((n) => n.id === this._sel.node);
     return `<div class="content wide">${this._subNav()}
       <div class="tools">
-        <button class="primary" data-act="add-node">+ Lägg till utrustning</button>
-        <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? "Lyssnar… <span data-learn-left></span> s" : `${ICON_PRESS}Lägg till med knapptryck`}</button>
-        ${this._sel.edge ? `<button class="danger" data-act="del-edge">Ta bort vald koppling</button>` : ""}
-        <span class="hint">Dra en enhet för att flytta den. Dra från den högra punkten till en annan enhet för att koppla ihop dem.
-          Pilen betyder <b>startas före</b> och <b>stängs av efter</b>. Klicka på en pil för att markera den.</span>
+        <button class="primary" data-act="add-node">${T("+ Lägg till utrustning")}</button>
+        <button data-act="learn-toggle" data-target="new" class="${this._learn?.target === "new" ? "primary learn-on" : ""}">${this._learn?.target === "new" ? T("Lyssnar… {0} s", "<span data-learn-left></span>") : `${ICON_PRESS}${T("Lägg till med knapptryck")}`}</button>
+        ${this._sel.edge ? `<button class="danger" data-act="del-edge">${T("Ta bort vald koppling")}</button>` : ""}
+        <span class="hint">${T("Dra en enhet för att flytta den. Dra från den högra punkten till en annan enhet för att koppla ihop dem. Pilen betyder <b>startas före</b> och <b>stängs av efter</b>. Klicka på en pil för att markera den.")}</span>
       </div>
       ${this._learn?.target === "new" ? `<div class="card">${this._learnList("Tryck på knappen på uttaget eller enheten du vill lägga till. Allt som ändrar läge visas här.", "Lägg till")}</div>` : ""}
       <div class="flow-layout">
         <div class="card pad0 grow">${this._diagram("draft", { editable: true })}</div>
-        ${node ? this._sideWrap(node.name || "Utrustning", this._nodeEditor(node), "close-node") : ""}
+        ${node ? this._sideWrap(node.name || T("Utrustning"), this._nodeEditor(node), "close-node") : ""}
       </div></div>`;
   }
 
   _nodeEditor(n) {
     const cfg = this._draft;
     const zonesUsing = cfg.zones.filter((z) => zoneNeeds(cfg, z.id).has(n.id));
-    const actSel = (path, opts, cur) => `<select data-nf="${path}">${opts.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+    const actSel = (path, opts, cur) => `<select data-nf="${path}">${opts.map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${T(l)}</option>`).join("")}</select>`;
     const spec = (k) => {
       const s = n[k] || {};
       const def = k === "on" ? "turn_on" : "turn_off";
@@ -852,84 +1244,83 @@ class SequencerPanel extends HTMLElement {
         ? [["turn_on", "Slå på entiteterna"], ["light", "Tänd / dimma ljus"], ["wol", "Wake on LAN (starta dator)"], ["dmx", "DMX (Art-Net / sACN)"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]]
         : [["turn_off", "Stäng av entiteterna"], ["light_off", "Släck / dimma ner ljus"], ["rpc_shutdown", "Stäng av Windows-dator (RPC)"], ["dmx_off", "DMX – släck samma kanaler"], ["dmx", "DMX – egna värden"], ["service", "Anropa tjänst…"], ["none", "Ingen åtgärd"]];
       return `<div class="row"><label class="grow">${actSel(`${k}.action`, opts, cur)}</label>
-        ${cur === "service" ? `<label class="grow"><input data-nf="${k}.service" list="services" value="${esc(s.service || "")}" placeholder="t.ex. media_player.select_source"></label>` : ""}</div>
+        ${cur === "service" ? `<label class="grow"><input data-nf="${k}.service" list="services" value="${esc(s.service || "")}" placeholder="${T("t.ex. media_player.select_source")}"></label>` : ""}</div>
         ${this._actionFields(n, k, cur, s)}
-        ${["turn_on", "turn_off", "service", "light"].includes(cur) ? `<details ${s._dataText ? "open" : ""}><summary>Extra data (JSON)</summary>
+        ${["turn_on", "turn_off", "service", "light"].includes(cur) ? `<details ${s._dataText ? "open" : ""}><summary>${T("Extra data (JSON)")}</summary>
           <textarea data-nf="${k}._dataText" placeholder='{"source": "TV"}'>${esc(s._dataText || "")}</textarea></details>` : ""}`;
     };
-    return `<div class="side-head"><b>Utrustning</b><button class="icon" data-act="close-node" title="Stäng">✕</button></div>
-      <label>Namn<input data-nf="name" value="${esc(n.name)}" placeholder="T.ex. Slutsteg kök"></label>
-      <div class="lbl">Bild</div>
-      <div class="img-grid">${Object.entries(IMAGES).map(([k, [l, svg]]) => `<button class="img-opt ${n.image === k ? "sel" : ""}" data-act="set-image" data-img="${k}" title="${l}">${svg}<span>${l}</span></button>`).join("")}</div>
-      <div class="lbl">Entiteter som styrs</div>
+    return `<div class="side-head"><b>${T("Utrustning")}</b><button class="icon" data-act="close-node" title="${T("Stäng")}">✕</button></div>
+      <label>${T("Namn")}<input data-nf="name" value="${esc(n.name)}" placeholder="${T("T.ex. Slutsteg kök")}"></label>
+      <div class="lbl">${T("Bild")}</div>
+      <div class="img-grid">${Object.entries(IMAGES).map(([k, [l, svg]]) => `<button class="img-opt ${n.image === k ? "sel" : ""}" data-act="set-image" data-img="${k}" title="${T(l)}">${svg}<span>${T(l)}</span></button>`).join("")}</div>
+      <div class="lbl">${T("Entiteter som styrs")}</div>
       ${this._chips(n.entities, "node")}
-      ${this._learnBox("node", `${ICON_PRESS}Lyssna – tryck på knappen på enheten`, "Lägg till")}
-      <div class="lbl">Påslag</div>${spec("on")}
-      <div class="row" style="margin-top:8px"><label>Vänta efter påslag (s)<input type="number" min="0" step="0.5" data-nf="delay_on" value="${esc(n.delay_on || 0)}"></label></div>
+      ${this._learnBox("node", `${ICON_PRESS}${T("Lyssna – tryck på knappen på enheten")}`, "Lägg till")}
+      <div class="lbl">${T("Påslag")}</div>${spec("on")}
+      <div class="row" style="margin-top:8px"><label>${T("Vänta efter påslag (s)")}<input type="number" min="0" step="0.5" data-nf="delay_on" value="${esc(n.delay_on || 0)}"></label></div>
       ${this._waitEditor(n, "wait_on", "Vänta innan påslag tills…")}
-      <div class="lbl">Avstängning</div>${spec("off")}
-      <div class="row" style="margin-top:8px"><label>Vänta efter avstängning (s)<input type="number" min="0" step="0.5" data-nf="delay_off" value="${esc(n.delay_off || 0)}"></label></div>
+      <div class="lbl">${T("Avstängning")}</div>${spec("off")}
+      <div class="row" style="margin-top:8px"><label>${T("Vänta efter avstängning (s)")}<input type="number" min="0" step="0.5" data-nf="delay_off" value="${esc(n.delay_off || 0)}"></label></div>
       ${this._waitEditor(n, "wait_off", "Vänta innan avstängning tills…")}
-      <div class="lbl">Kopplingar</div>
+      <div class="lbl">${T("Kopplingar")}</div>
       ${this._linkEditor(n)}
-      <div class="lbl">Prioritet</div>
+      <div class="lbl">${T("Prioritet")}</div>
       ${actSel("rank", [["first", "Alltid först – startas först, stängs av sist"], ["normal", "Normal – följer pilarna"], ["last", "Alltid sist – startas sist, stängs av först"]], n.rank || "normal")}
-      <div class="lbl">Används av</div>
-      <div class="chips">${zonesUsing.length ? zonesUsing.map((z) => `<span class="chip" style="padding-right:10px"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:${z.color}"></span>${esc(z.name)}</span>`).join("") : `<span class="hint">Ingen grupp ännu</span>`}</div>
-      <div class="lbl">Testa</div>
-      <div class="btns" style="margin-top:0"><button class="small" data-act="test-node" data-on="1">Slå på nu</button><button class="small" data-act="test-node" data-on="0">Stäng av nu</button></div>
-      <div class="btns"><button class="danger small" data-act="del-node">Ta bort utrustning</button></div>`;
+      <div class="lbl">${T("Används av")}</div>
+      <div class="chips">${zonesUsing.length ? zonesUsing.map((z) => `<span class="chip" style="padding-right:10px"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:${z.color}"></span>${esc(z.name)}</span>`).join("") : `<span class="hint">${T("Ingen grupp ännu")}</span>`}</div>
+      <div class="lbl">${T("Testa")}</div>
+      <div class="btns" style="margin-top:0"><button class="small" data-act="test-node" data-on="1">${T("Slå på nu")}</button><button class="small" data-act="test-node" data-on="0">${T("Stäng av nu")}</button></div>
+      <div class="btns"><button class="danger small" data-act="del-node">${T("Ta bort utrustning")}</button></div>`;
   }
 
   _actionFields(n, k, cur, s, attr = "data-nf") {
-    const num = (f, label, v, attrs = "") => `<label>${label}<input type="number" ${attr}="${k}.${f}" value="${esc(v ?? "")}" ${attrs} style="width:100px"></label>`;
-    const txt = (f, label, v, ph = "", type = "text") => `<label class="grow">${label}<input type="${type}" ${attr}="${k}.${f}" value="${esc(v ?? "")}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
-    const chk = (f, label, v) => `<label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--primary-text-color)"><input type="checkbox" ${attr}="${k}.${f}" ${v ? "checked" : ""}>${label}</label>`;
-    const presets = (f, list) => `<div class="chips" style="margin:2px 0 6px">${list.map(([v, l]) => `<button class="small ${Number(s[f] ?? 0) === v ? "primary" : ""}" data-act="preset" data-pattr="${attr}" data-path="${k}.${f}" data-v="${v}">${l}</button>`).join("")}</div>`;
+    const num = (f, label, v, attrs = "") => `<label>${T(label)}<input type="number" ${attr}="${k}.${f}" value="${esc(v ?? "")}" ${attrs} style="width:100px"></label>`;
+    const txt = (f, label, v, ph = "", type = "text") => `<label class="grow">${T(label)}<input type="${type}" ${attr}="${k}.${f}" value="${esc(v ?? "")}" placeholder="${esc(T(ph))}" autocomplete="off"></label>`;
+    const chk = (f, label, v) => `<label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--primary-text-color)"><input type="checkbox" ${attr}="${k}.${f}" ${v ? "checked" : ""}>${T(label)}</label>`;
+    const presets = (f, list) => `<div class="chips" style="margin:2px 0 6px">${list.map(([v, l]) => `<button class="small ${Number(s[f] ?? 0) === v ? "primary" : ""}" data-act="preset" data-pattr="${attr}" data-path="${k}.${f}" data-v="${v}">${T(l)}</button>`).join("")}</div>`;
     const fadeList = [[0, "Direkt"], [1, "Snabbt 1 s"], [3, "Mjukt 3 s"], [10, "Långsamt 10 s"], [30, "30 s"]];
     if (cur === "light") {
       const lights = (n.entities || []).filter((e) => e.startsWith("light."));
-      return `${lights.length ? "" : `<div class="err" style="margin-bottom:6px">Lägg till minst en light-entitet ovan.</div>`}
-        <label>Ljusstyrka: <b data-show="${k}.brightness">${esc(s.brightness ?? 100)} %</b><input type="range" min="0" max="100" step="1" ${attr}="${k}.brightness" value="${esc(s.brightness ?? 100)}"></label>
-        <div class="lbl" style="margin:8px 0 2px">Övergång</div>${presets("transition", fadeList)}
+      return `${lights.length ? "" : `<div class="err" style="margin-bottom:6px">${T("Lägg till minst en light-entitet ovan.")}</div>`}
+        <label>${T("Ljusstyrka:")} <b data-show="${k}.brightness">${esc(s.brightness ?? 100)} %</b><input type="range" min="0" max="100" step="1" ${attr}="${k}.brightness" value="${esc(s.brightness ?? 100)}"></label>
+        <div class="lbl" style="margin:8px 0 2px">${T("Övergång")}</div>${presets("transition", fadeList)}
         <div class="row">${num("transition", "Sekunder", s.transition ?? 0, 'min="0" step="0.5"')}</div>
-        <div class="row"><label>Färg<select ${attr}="${k}.color_mode">${[["none", "Behåll"], ["rgb", "Välj färg"], ["temp", "Färgtemperatur"]].map(([v, l]) => `<option value="${v}" ${(s.color_mode || "none") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-          ${s.color_mode === "rgb" ? `<label>Färg<input type="color" ${attr}="${k}.rgb" value="${esc(s.rgb || "#ffffff")}" style="width:64px;height:38px;padding:2px"></label>` : ""}
-          ${s.color_mode === "temp" ? `<label class="grow">Temperatur: <b data-show="${k}.kelvin">${esc(s.kelvin || 3000)} K</b><input type="range" min="2000" max="6500" step="100" ${attr}="${k}.kelvin" value="${esc(s.kelvin || 3000)}"></label>` : ""}</div>
+        <div class="row"><label>${T("Färg")}<select ${attr}="${k}.color_mode">${[["none", "Behåll"], ["rgb", "Välj färg"], ["temp", "Färgtemperatur"]].map(([v, l]) => `<option value="${v}" ${(s.color_mode || "none") === v ? "selected" : ""}>${T(l)}</option>`).join("")}</select></label>
+          ${s.color_mode === "rgb" ? `<label>${T("Färg")}<input type="color" ${attr}="${k}.rgb" value="${esc(s.rgb || "#ffffff")}" style="width:64px;height:38px;padding:2px"></label>` : ""}
+          ${s.color_mode === "temp" ? `<label class="grow">${T("Temperatur:")} <b data-show="${k}.kelvin">${esc(s.kelvin || 3000)} K</b><input type="range" min="2000" max="6500" step="100" ${attr}="${k}.kelvin" value="${esc(s.kelvin || 3000)}"></label>` : ""}</div>
         ${chk("wait", "Vänta tills övergången är klar innan nästa steg", s.wait)}`;
     }
     if (cur === "light_off") {
-      return `<div class="lbl" style="margin:8px 0 2px">Övergång</div>${presets("transition", fadeList)}
+      return `<div class="lbl" style="margin:8px 0 2px">${T("Övergång")}</div>${presets("transition", fadeList)}
         <div class="row">${num("transition", "Sekunder", s.transition ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills övergången är klar", s.wait)}`;
     }
     if (cur === "wol") {
       return `<div class="row">${txt("mac", "MAC-adress", s.mac, "AA:BB:CC:DD:EE:FF")}</div>
         <div class="row">${txt("broadcast", "Broadcast-adress (valfritt)", s.broadcast, "255.255.255.255")}${num("port", "Port", s.port ?? 9, 'min="1" max="65535"')}</div>
-        <div class="hint">Tips: lägg till en ping-sensor (binary_sensor) för datorn som entitet ovan. Då visas om den är igång, och du kan använda "vänta tills" för nästa steg.</div>`;
+        <div class="hint">${T("Tips: lägg till en ping-sensor (binary_sensor) för datorn som entitet ovan. Då visas om den är igång, och du kan använda \"vänta tills\" för nästa steg.")}</div>`;
     }
     if (cur === "rpc_shutdown") {
       return `<div class="row">${txt("host", "Dator (IP eller namn)", s.host, "192.168.1.50")}</div>
         <div class="row">${txt("username", "Användare", s.username, "admin")}${txt("password", "Lösenord", s.password, "", "password")}</div>
         <div class="row">${txt("domain", "Domän (valfritt)", s.domain, "")}${num("timeout", "Fördröjning (s)", s.timeout ?? 0, 'min="0" max="600"')}</div>
         ${chk("force", "Tvinga stängning av öppna program", s.force !== false)} ${chk("reboot", "Starta om i stället för att stänga av", s.reboot)}
-        <details><summary>Så förbereder du Windows-datorn</summary><div class="hint" style="line-height:1.6">
-          1. Kontot ska vara administratör på datorn.<br>
-          2. Tillåt <i>Fil- och skrivardelning</i> i Windows-brandväggen (port 445).<br>
-          3. För ett <b>lokalt</b> konto (inte domän/Microsoft-konto): kör som admin<br><code>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f</code><br>
-          Samma krav som för <code>shutdown /s /m \\dator</code>. Första gången installeras ett hjälpbibliotek i HA (kan ta en minut).
-          Lösenordet sparas i HA:s lagring.</div></details>`;
+        <details><summary>${T("Så förbereder du Windows-datorn")}</summary><div class="hint" style="line-height:1.6">
+          ${T("1. Kontot ska vara administratör på datorn.")}<br>
+          ${T("2. Tillåt <i>Fil- och skrivardelning</i> i Windows-brandväggen (port 445).")}<br>
+          ${T("3. För ett <b>lokalt</b> konto (inte domän/Microsoft-konto): kör som admin")}<br><code>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f</code><br>
+          ${T("Samma krav som för <code>shutdown /s /m \\\\dator</code>. Första gången installeras ett hjälpbibliotek i HA (kan ta en minut). Lösenordet sparas i HA:s lagring.")}</div></details>`;
     }
     if (cur === "dmx") {
-      return `<div class="row"><label>Protokoll<select ${attr}="${k}.protocol">${[["artnet", "Art-Net"], ["sacn", "sACN (E1.31)"]].map(([v, l]) => `<option value="${v}" ${(s.protocol || "artnet") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      return `<div class="row"><label>${T("Protokoll")}<select ${attr}="${k}.protocol">${[["artnet", "Art-Net"], ["sacn", "sACN (E1.31)"]].map(([v, l]) => `<option value="${v}" ${(s.protocol || "artnet") === v ? "selected" : ""}>${T(l)}</option>`).join("")}</select></label>
           ${num("universe", "Universum", s.universe ?? (s.protocol === "sacn" ? 1 : 0), 'min="0" max="63999"')}</div>
         <div class="row">${txt("host", "IP till DMX-noden (tomt = broadcast/multicast)", s.host, s.protocol === "sacn" ? "multicast" : "255.255.255.255")}</div>
-        <label>Kanaler och värden<textarea ${attr}="${k}.channels" placeholder="1=255, 2-4=50%, 10=128" style="font-family:monospace">${esc(s.channels || "")}</textarea></label>
-        <div class="hint">Värde 0–255 eller procent. Intervall med bindestreck, t.ex. <code>1-12=100%</code>.</div>
+        <label>${T("Kanaler och värden")}<textarea ${attr}="${k}.channels" placeholder="1=255, 2-4=50%, 10=128" style="font-family:monospace">${esc(s.channels || "")}</textarea></label>
+        <div class="hint">${T("Värde 0–255 eller procent. Intervall med bindestreck, t.ex. <code>1-12=100%</code>.")}</div>
         <div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
         <div class="row">${num("fade", "Sekunder", s.fade ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills faden är klar", s.wait)}`;
     }
     if (cur === "dmx_off") {
-      return `<div class="hint">Släcker kanalerna som påslaget tänder.</div><div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
+      return `<div class="hint">${T("Släcker kanalerna som påslaget tänder.")}</div><div class="lbl" style="margin:8px 0 2px">Fade</div>${presets("fade", fadeList)}
         <div class="row">${num("fade", "Sekunder", s.fade ?? 0, 'min="0" step="0.5"')}</div>${chk("wait", "Vänta tills faden är klar", s.wait)}`;
     }
     return "";
@@ -942,28 +1333,31 @@ class SequencerPanel extends HTMLElement {
     const ins = cfg.edges.filter((e) => e.to === n.id).map((e) => e.from);
     const opts = (dir, have) => cfg.nodes.filter((x) => x.id !== n.id && !have.includes(x.id) && !(dir === "out" ? wouldCycle(cfg, n.id, x.id) : wouldCycle(cfg, x.id, n.id)))
       .map((x) => `<option value="${esc(x.id)}">${esc(x.name || "?")}</option>`).join("");
-    const chips = (list, dir) => list.map((id) => `<span class="chip">${nm(id)}<button data-act="unlink" data-dir="${dir}" data-other="${esc(id)}" title="Ta bort koppling">×</button></span>`).join("");
-    return `<div class="hint">Startas <b>efter</b> (och stängs av före):</div>
-      <div class="chips" style="margin:4px 0 10px">${chips(ins, "in")}<select data-link="in"><option value="">+ Lägg till…</option>${opts("in", ins)}</select></div>
-      <div class="hint">Startas <b>före</b> (och stängs av efter):</div>
-      <div class="chips" style="margin-top:4px">${chips(outs, "out")}<select data-link="out"><option value="">+ Lägg till…</option>${opts("out", outs)}</select></div>`;
+    const chips = (list, dir) => list.map((id) => `<span class="chip">${nm(id)}<button data-act="unlink" data-dir="${dir}" data-other="${esc(id)}" title="${T("Ta bort koppling")}">×</button></span>`).join("");
+    return `<div class="hint">${T("Startas <b>efter</b> (och stängs av före):")}</div>
+      <div class="chips" style="margin:4px 0 10px">${chips(ins, "in")}<select data-link="in"><option value="">${T("+ Lägg till…")}</option>${opts("in", ins)}</select></div>
+      <div class="hint">${T("Startas <b>före</b> (och stängs av efter):")}</div>
+      <div class="chips" style="margin-top:4px">${chips(outs, "out")}<select data-link="out"><option value="">${T("+ Lägg till…")}</option>${opts("out", outs)}</select></div>`;
   }
 
-  _learnBox(target, startLabel, useLabel) {
+  _learnBox(target, startLabel, useLabelSv) {
+    const useLabel = T(useLabelSv);
     const on = this._learn?.target === target;
     return `<div class="learnbox"><button class="small ${on ? "primary learn-on" : ""}" data-act="learn-toggle" data-target="${target}">
-      ${on ? "Lyssnar… <span data-learn-left></span> s · Sluta" : startLabel}</button>
+      ${on ? T("Lyssnar… {0} s · Sluta", "<span data-learn-left></span>") : startLabel}</button>
       ${on ? this._learnList("Tryck på knappen nu. Allt som ändrar läge visas här.", useLabel) : ""}</div>`;
   }
 
-  _learnList(hint, useLabel) {
+  _learnList(hintSv, useLabelSv) {
+    const hint = T(hintSv), useLabel = T(useLabelSv);
     const cands = this._learn?.cands || [];
     return `<div class="hint" style="margin:6px 0">${hint}</div>
       ${cands.map((c, i) => `<div class="cand"><span class="t">${this._candLabel(c)}</span><button class="small" data-act="use-learn" data-i="${i}">${useLabel}</button></div>`).join("")}`;
   }
 
   /** HA's own entity picker (icon, name, area, device) – falls back to a plain search box. */
-  _entityField(attrs, value, { domains = null, placeholder = "Välj entitet…", grow = true } = {}) {
+  _entityField(attrs, value, { domains = null, placeholder: phSv = "Välj entitet…", grow = true } = {}) {
+    const placeholder = T(phSv);
     if (this._usePicker) {
       return `<ha-entity-picker data-ep="1" ${attrs} data-value="${esc(value || "")}" ${domains ? `data-domains="${esc(domains.join(","))}"` : ""}
         data-label="${esc(placeholder)}" style="display:block;${grow ? "flex:1;min-width:220px;" : ""}"></ha-entity-picker>`;
@@ -1016,23 +1410,24 @@ class SequencerPanel extends HTMLElement {
       ${this._entityField(`class="entity-input" data-ctx="${ctx}"`, "", { domains, placeholder: "Lägg till entitet…" })}</div>`;
   }
 
-  _waitEditor(n, key, title) {
+  _waitEditor(n, key, titleSv) {
+    const title = T(titleSv);
     const w = n[key];
     const conds = w?.conditions || [];
-    const summary = conds.length ? ` (${conds.length} villkor)` : "";
+    const summary = conds.length ? ` (${T("{0} villkor", conds.length)})` : "";
     return `<details ${conds.length ? "open" : ""}><summary>${title}${summary}</summary>
       ${conds.map((c, i) => `<div class="cond" data-wpath="${key}" data-ci="${i}">
         ${this._entityField('data-cf="entity_id"', c.entity_id, { placeholder: "Entitet" })}
-        <input data-cf="attribute" value="${esc(c.attribute || "")}" placeholder="attribut" style="width:84px">
+        <input data-cf="attribute" value="${esc(c.attribute || "")}" placeholder="${T("attribut")}" style="width:84px">
         <span>=</span><input data-cf="state" value="${esc(c.state || "")}" placeholder="on" style="width:84px">
-        <button class="icon" data-act="del-cond" title="Ta bort">✕</button></div>`).join("")}
-      <button class="small" data-act="add-cond" data-wpath="${key}">+ Villkor</button>
-      ${this._learnBox(`cond:${key}`, `${ICON_WATCH}Bevaka status`, "Använd")}
+        <button class="icon" data-act="del-cond" title="${T("Ta bort")}">✕</button></div>`).join("")}
+      <button class="small" data-act="add-cond" data-wpath="${key}">${T("+ Villkor")}</button>
+      ${this._learnBox(`cond:${key}`, `${ICON_WATCH}${T("Bevaka status")}`, "Använd")}
       ${conds.length ? `<div class="row" style="margin-top:8px">
-        <label>Krav<select data-wf="mode" data-wpath="${key}"><option value="all" ${w.mode !== "any" ? "selected" : ""}>Alla (X och Y)</option><option value="any" ${w.mode === "any" ? "selected" : ""}>Något (X eller Y)</option></select></label>
+        <label>${T("Krav")}<select data-wf="mode" data-wpath="${key}"><option value="all" ${w.mode !== "any" ? "selected" : ""}>${T("Alla (X och Y)")}</option><option value="any" ${w.mode === "any" ? "selected" : ""}>${T("Något (X eller Y)")}</option></select></label>
         <label>Max (s)<input type="number" min="1" data-wf="timeout" data-wpath="${key}" value="${esc(w.timeout ?? 60)}" style="width:76px"></label>
-        <label>Om tiden går ut<select data-wf="on_timeout" data-wpath="${key}"><option value="continue" ${w.on_timeout !== "abort" ? "selected" : ""}>Fortsätt ändå</option><option value="abort" ${w.on_timeout === "abort" ? "selected" : ""}>Avbryt sekvensen</option></select></label></div>
-        <div class="hint">Flera värden separeras med komma, t.ex. <code>on,playing</code>. Tomt värde = vad som helst utom otillgänglig. Attribut är valfritt.</div>` : ""}
+        <label>${T("Om tiden går ut")}<select data-wf="on_timeout" data-wpath="${key}"><option value="continue" ${w.on_timeout !== "abort" ? "selected" : ""}>${T("Fortsätt ändå")}</option><option value="abort" ${w.on_timeout === "abort" ? "selected" : ""}>${T("Avbryt sekvensen")}</option></select></label></div>
+        <div class="hint">${T("Flera värden separeras med komma, t.ex. <code>on,playing</code>. Tomt värde = vad som helst utom otillgänglig. Attribut är valfritt.")}</div>` : ""}
     </details>`;
   }
 
@@ -1041,38 +1436,38 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const name = (id) => esc(cfg.nodes.find((n) => n.id === id)?.name || "?");
     const opts = (sel) => cfg.nodes.map((n) => `<option value="${esc(n.id)}" ${sel === n.id ? "selected" : ""}>${esc(n.name || "?")}</option>`).join("");
-    if (!cfg.nodes.length) return `<div class="content">${this._subNav()}<div class="card empty">Lägg till utrustning i <b>Schema</b> först.</div></div>`;
+    if (!cfg.nodes.length) return `<div class="content">${this._subNav()}<div class="card empty">${T("Lägg till utrustning i <b>Schema</b> först.")}</div></div>`;
     const waitText = (w) => w?.conditions?.length
-      ? w.conditions.map((c) => `${esc(this._friendly(c.entity_id))}${c.attribute ? "." + esc(c.attribute) : ""} = ${esc(c.state || "något")}`).join(w.mode === "any" ? " <b>eller</b> " : " <b>och</b> ") + ` <small>(max ${fmtSec(w.timeout ?? 60)} s)</small>`
+      ? w.conditions.map((c) => `${esc(this._friendly(c.entity_id))}${c.attribute ? "." + esc(c.attribute) : ""} = ${esc(c.state || T("något"))}`).join(w.mode === "any" ? ` <b>${T("eller")}</b> ` : ` <b>${T("och")}</b> `) + ` <small>(max ${fmtSec(w.timeout ?? 60)} s)</small>`
       : `<span class="hint">–</span>`;
     const ord = order(cfg);
     return `<div class="content">${this._subNav()}
-      <div class="card"><h2>Ordning</h2>
-        <div class="hint">"A startas före B" betyder också att A stängs av <i>efter</i> B. Reglerna är samma sak som pilarna i flödesschemat.</div>
-        ${cfg.edges.map((e, i) => `<div class="rule"><span class="t"><b>${name(e.from)}</b> startas före <b>${name(e.to)}</b> och stängs av efter</span>
-          <button class="small danger" data-act="del-rule" data-i="${i}">Ta bort</button></div>`).join("") || `<div class="hint" style="margin:10px 0">Inga regler ännu.</div>`}
+      <div class="card"><h2>${T("Ordning")}</h2>
+        <div class="hint">${T("\"A startas före B\" betyder också att A stängs av <i>efter</i> B. Reglerna är samma sak som pilarna i flödesschemat.")}</div>
+        ${cfg.edges.map((e, i) => `<div class="rule"><span class="t">${T("<b>{0}</b> startas före <b>{1}</b> och stängs av efter", name(e.from), name(e.to))}</span>
+          <button class="small danger" data-act="del-rule" data-i="${i}">${T("Ta bort")}</button></div>`).join("") || `<div class="hint" style="margin:10px 0">${T("Inga regler ännu.")}</div>`}
         <div class="row" style="margin-top:12px">
-          <label class="grow">Utrustning<select id="rule-a">${opts(cfg.nodes[0]?.id)}</select></label>
-          <span style="padding-bottom:9px">startas alltid före</span>
-          <label class="grow">Utrustning<select id="rule-b">${opts(cfg.nodes[1]?.id)}</select></label>
-          <button class="primary" data-act="add-rule">Lägg till regel</button>
+          <label class="grow">${T("Utrustning")}<select id="rule-a">${opts(cfg.nodes[0]?.id)}</select></label>
+          <span style="padding-bottom:9px">${T("startas alltid före")}</span>
+          <label class="grow">${T("Utrustning")}<select id="rule-b">${opts(cfg.nodes[1]?.id)}</select></label>
+          <button class="primary" data-act="add-rule">${T("Lägg till regel")}</button>
         </div>
       </div>
-      <div class="card"><h2>Prioritet, fördröjningar och villkor</h2>
-        <div class="hint">"Alltid först" passar t.ex. en mixer eller strömfördelare: den startas före allt annat och stängs av sist. "Alltid sist" passar slutsteg.</div>
-        <div style="overflow-x:auto"><table class="rules"><tr><th>Utrustning</th><th>Prioritet</th><th>Vänta efter på (s)</th><th>Vänta efter av (s)</th><th>Väntar innan påslag på</th><th></th></tr>
+      <div class="card"><h2>${T("Prioritet, fördröjningar och villkor")}</h2>
+        <div class="hint">${T("\"Alltid först\" passar t.ex. en mixer eller strömfördelare: den startas före allt annat och stängs av sist. \"Alltid sist\" passar slutsteg.")}</div>
+        <div style="overflow-x:auto"><table class="rules"><tr><th>${T("Utrustning")}</th><th>${T("Prioritet")}</th><th>${T("Vänta efter på (s)")}</th><th>${T("Vänta efter av (s)")}</th><th>${T("Väntar innan påslag på")}</th><th></th></tr>
         ${cfg.nodes.map((n) => `<tr data-rowid="${esc(n.id)}"><td><b>${esc(n.name || "?")}</b></td>
-          <td data-label="Prioritet"><select data-rr="rank">${["first", "normal", "last"].map((r) => `<option value="${r}" ${(n.rank || "normal") === r ? "selected" : ""}>${RANK_LABEL[r]}</option>`).join("")}</select></td>
-          <td data-label="Vänta efter på (s)"><input type="number" min="0" step="0.5" data-rr="delay_on" value="${esc(n.delay_on || 0)}"></td>
-          <td data-label="Vänta efter av (s)"><input type="number" min="0" step="0.5" data-rr="delay_off" value="${esc(n.delay_off || 0)}"></td>
-          <td data-label="Väntar på">${waitText(n.wait_on)}</td>
-          <td><button class="small" data-act="edit-node" data-id="${esc(n.id)}">Villkor…</button></td></tr>`).join("")}
+          <td data-label="${T("Prioritet")}"><select data-rr="rank">${["first", "normal", "last"].map((r) => `<option value="${r}" ${(n.rank || "normal") === r ? "selected" : ""}>${T(RANK_LABEL[r])}</option>`).join("")}</select></td>
+          <td data-label="${T("Vänta efter på (s)")}"><input type="number" min="0" step="0.5" data-rr="delay_on" value="${esc(n.delay_on || 0)}"></td>
+          <td data-label="${T("Vänta efter av (s)")}"><input type="number" min="0" step="0.5" data-rr="delay_off" value="${esc(n.delay_off || 0)}"></td>
+          <td data-label="${T("Väntar på")}">${waitText(n.wait_on)}</td>
+          <td><button class="small" data-act="edit-node" data-id="${esc(n.id)}">${T("Villkor…")}</button></td></tr>`).join("")}
         </table></div>
       </div>
-      <div class="card"><h2>Resultat</h2>
-        <div class="preview"><b>Startordning (allt):</b> ${ord.map((id) => name(id)).join(" → ")}<br>
-        <b>Avstängning (allt):</b> ${[...ord].reverse().map((id) => name(id)).join(" → ")}</div>
-        <div class="hint" style="margin-top:8px">En grupp kör bara den del av ordningen som den behöver. Se fliken Sekvenser.</div>
+      <div class="card"><h2>${T("Resultat")}</h2>
+        <div class="preview"><b>${T("Startordning (allt):")}</b> ${ord.map((id) => name(id)).join(" → ")}<br>
+        <b>${T("Avstängning (allt):")}</b> ${[...ord].reverse().map((id) => name(id)).join(" → ")}</div>
+        <div class="hint" style="margin-top:8px">${T("En grupp kör bara den del av ordningen som den behöver. Se fliken Sekvenser.")}</div>
       </div></div>`;
   }
 
@@ -1081,19 +1476,18 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const z = cfg.zones.find((x) => x.id === this._sel.zone && !x.standalone);
     const list = cfg.zones.filter((x) => !x.standalone).map((x, i) => `<div class="list-item ${x.id === this._sel.zone ? "sel" : ""}" data-act-item="zone" data-id="${esc(x.id)}">
-      <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${zoneNeeds(cfg, x.id).size} enheter${x.custom ? " · sekvens anpassad" : ""}</small></span>
+      <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${T("{0} enheter", zoneNeeds(cfg, x.id).size)}${x.custom ? T(" · sekvens anpassad") : ""}</small></span>
       ${x.custom ? `<span class="dotw ${seqOutdated(cfg, x) ? "o" : "y"}"></span>` : ""}</div>`).join("");
-    const listCard = `<div class="card side-left"><h2>Grupper</h2>${list || `<div class="hint">Inga grupper ännu.</div>`}
-        <div class="btns"><button class="primary" data-act="add-zone">+ Ny grupp</button></div></div>`;
+    const listCard = `<div class="card side-left"><h2>${T("Grupper")}</h2>${list || `<div class="hint">${T("Inga grupper ännu.")}</div>`}
+        <div class="btns"><button class="primary" data-act="add-zone">${T("+ Ny grupp")}</button></div></div>`;
     if (this._mobile) {
       return `<div class="content">${listCard}<div class="card pad0">${this._diagram("draft")}</div>
-        ${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-zone">‹ Tillbaka</button><b>${esc(z.name)}</b></div>
+        ${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-zone">‹ ${T("Tillbaka")}</button><b>${esc(z.name)}</b></div>
           <div class="sheet-body">${this._zoneEditor(z)}<div class="card pad0">${this._diagram("draft", { highlight: z.id, dimOthers: true })}</div></div></div>` : ""}</div>`;
     }
     return `<div class="content wide"><div class="flow-layout">
       ${listCard}
-      <div class="grow">${z ? this._zoneEditor(z) : `<div class="card empty">En grupp är t.ex. ett rum eller en zon. Välj vilken utrustning den behöver.
-        Det som krävs före (enligt flödesschemat) tas med automatiskt, och utrustning som delas med en annan grupp som är igång stängs inte av.</div>`}
+      <div class="grow">${z ? this._zoneEditor(z) : `<div class="card empty">${T("En grupp är t.ex. ett rum eller en zon. Välj vilken utrustning den behöver. Det som krävs före (enligt flödesschemat) tas med automatiskt, och utrustning som delas med en annan grupp som är igång stängs inte av.")}</div>`}
         <div class="card pad0">${this._diagram("draft", { highlight: z?.id, dimOthers: !!z })}</div></div>
     </div></div>`;
   }
@@ -1107,27 +1501,27 @@ class SequencerPanel extends HTMLElement {
     const seq = zoneSteps(cfg, z, "start").map((s) => s.node).filter((id) => nodes[id]);
     const startTxt = seq.map((id) => esc(nodes[id].name || "?")).join(" → ");
     return `<div class="card">
-      <div class="row"><label class="grow">Namn<input data-zf="name" value="${esc(z.name)}" placeholder="T.ex. Vardagsrum"></label>
-        <label>Ikon<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:sofa"></label></div>
-      <div class="lbl">Färg</div>
+      <div class="row"><label class="grow">${T("Namn")}<input data-zf="name" value="${esc(z.name)}" placeholder="${T("T.ex. Vardagsrum")}"></label>
+        <label>${T("Ikon")}<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:sofa"></label></div>
+      <div class="lbl">${T("Färg")}</div>
       <div class="swatches">${ZONE_COLORS.map((c) => `<button class="swatch ${z.color === c ? "sel" : ""}" style="background:${c}" data-act="zone-color" data-color="${c}"></button>`).join("")}</div>
-      <div class="lbl">Utrustning som gruppen behöver</div>
-      <div class="hint" style="margin-bottom:8px">Välj det som är unikt för gruppen, t.ex. rummets slutsteg. Det som måste vara igång före tas med automatiskt (streckad ram).</div>
+      <div class="lbl">${T("Utrustning som gruppen behöver")}</div>
+      <div class="hint" style="margin-bottom:8px">${T("Välj det som är unikt för gruppen, t.ex. rummets slutsteg. Det som måste vara igång före tas med automatiskt (streckad ram).")}</div>
       <div class="pick-grid">${cfg.nodes.map((n) => {
         const on = z.nodes.includes(n.id); const auto = !on && all.has(n.id); const sh = sharedWith(n.id);
         return `<label class="pick ${on ? "on" : ""} ${auto ? "auto" : ""}"><input type="checkbox" data-zn="${esc(n.id)}" ${on ? "checked" : ""}>
-          ${(IMAGES[n.image] || IMAGES.generic)[1]}<span>${esc(n.name || "?")}${auto ? "<small>automatiskt</small>" : ""}${sh.length ? `<small>delas med ${esc(sh.join(", "))}</small>` : ""}</span></label>`;
+          ${(IMAGES[n.image] || IMAGES.generic)[1]}<span>${esc(n.name || "?")}${auto ? `<small>${T("automatiskt")}</small>` : ""}${sh.length ? `<small>${T("delas med {0}", esc(sh.join(", ")))}</small>` : ""}</span></label>`;
       }).join("")}</div>
-      <div class="lbl">Status-LED (valfritt)</div>
-      <div class="row"><label class="grow">LED-entitet (light/switch)${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
-        <label>Släck efter (min)<input type="number" min="0" step="1" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div>
-      <div class="hint">Blinkar långsamt medan sekvensen körs, lyser fast när allt gick bra (släcks efter angiven tid, 0 = lys tills nästa gång) och blinkar snabbt vid fel tills gruppen körs igen.</div>
-      <div class="lbl">Sekvens</div>
-      <div class="preview">${z.custom ? `<span class="dotw ${seqOutdated(cfg, z) ? "o" : "y"}"></span> <b>Anpassad för hand</b>${seqOutdated(cfg, z) ? " – gruppen har ändrats sedan dess" : ""}` : "<b>Automatisk</b> – byggs av reglerna"}<br>
-        ${seq.length ? `Start: ${startTxt}` : "Välj utrustning ovan."}
-        <div class="btns" style="margin-top:8px"><button class="small" data-act="goto-seq" data-id="${esc(z.id)}">Visa och ändra sekvensen →</button></div></div>
-      <div class="hint" style="margin-top:6px">Det som redan är igång hoppas över vid start. Switch i HA: <code>switch.${esc((z.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_"))}</code> (ungefär) när gruppen sparats.</div>
-      <div class="btns"><button class="danger small" data-act="del-zone">Ta bort grupp</button></div>
+      <div class="lbl">${T("Status-LED (valfritt)")}</div>
+      <div class="row"><label class="grow">${T("LED-entitet (light/switch)")}${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
+        <label>${T("Släck efter (min)")}<input type="number" min="0" step="1" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div>
+      <div class="hint">${T("Blinkar långsamt medan sekvensen körs, lyser fast när allt gick bra (släcks efter angiven tid, 0 = lys tills nästa gång) och blinkar snabbt vid fel tills gruppen körs igen.")}</div>
+      <div class="lbl">${T("Sekvens")}</div>
+      <div class="preview">${z.custom ? `<span class="dotw ${seqOutdated(cfg, z) ? "o" : "y"}"></span> <b>${T("Anpassad för hand")}</b>${seqOutdated(cfg, z) ? T(" – gruppen har ändrats sedan dess") : ""}` : T("<b>Automatisk</b> – byggs av reglerna")}<br>
+        ${seq.length ? `${T("Start:")} ${startTxt}` : T("Välj utrustning ovan.")}
+        <div class="btns" style="margin-top:8px"><button class="small" data-act="goto-seq" data-id="${esc(z.id)}">${T("Visa och ändra sekvensen →")}</button></div></div>
+      <div class="hint" style="margin-top:6px">${T("Det som redan är igång hoppas över vid start. Switch i HA: {0} (ungefär) när gruppen sparats.", `<code>switch.${esc((z.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_"))}</code>`)}</div>
+      <div class="btns"><button class="danger small" data-act="del-zone">${T("Ta bort grupp")}</button></div>
     </div>`;
   }
 
@@ -1136,23 +1530,22 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const z = cfg.zones.find((x) => x.id === this._sel.seq);
     const item = (x, i) => {
-      const dot = x.custom && !x.standalone ? `<span class="dotw ${seqOutdated(cfg, x) ? "o" : "y"}" title="${seqOutdated(cfg, x) ? "Gruppen har ändrats" : "Anpassad för hand"}"></span>` : "";
-      const sub = x.standalone ? "Egen sekvens" : x.custom ? "Grupp · anpassad" : "Grupp · automatisk";
+      const dot = x.custom && !x.standalone ? `<span class="dotw ${seqOutdated(cfg, x) ? "o" : "y"}" title="${seqOutdated(cfg, x) ? T("Gruppen har ändrats") : T("Anpassad för hand")}"></span>` : "";
+      const sub = x.standalone ? T("Egen sekvens") : x.custom ? T("Grupp · anpassad") : T("Grupp · automatisk");
       return `<div class="list-item ${x.id === this._sel.seq ? "sel" : ""}" data-act-item="seq" data-id="${esc(x.id)}">
-        <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${sub} · ${zoneSteps(cfg, x, "start").length} steg</small></span>${dot}</div>`;
+        <span class="sw" style="background:${x.color || ZONE_COLORS[i % 8]}"></span><span class="t">${esc(x.name)}<small>${sub} · ${T("{0} steg", zoneSteps(cfg, x, "start").length)}</small></span>${dot}</div>`;
     };
     const groups = cfg.zones.map((x, i) => [x, i]).filter(([x]) => !x.standalone);
     const own = cfg.zones.map((x, i) => [x, i]).filter(([x]) => x.standalone);
-    const listCard = `<div class="card side-left"><h2>Sekvenser</h2>
-      ${groups.length ? `<div class="lbl" style="margin-top:0">Från grupper</div>${groups.map(([x, i]) => item(x, i)).join("")}` : ""}
-      ${own.length ? `<div class="lbl">Egna</div>${own.map(([x, i]) => item(x, i)).join("")}` : ""}
-      ${!cfg.zones.length ? `<div class="hint">Skapa grupper så får de sekvenser automatiskt, eller gör en egen sekvens för hand.</div>` : ""}
-      <div class="btns"><button class="primary" data-act="add-seq">+ Ny egen sekvens</button></div>
-      <div class="hint" style="margin-top:10px"><span class="dotw y"></span> ändrad för hand &nbsp; <span class="dotw o"></span> gruppen har ändrats sedan dess</div></div>`;
-    const editor = z ? this._seqEditor(z) : `<div class="card empty">Varje grupp får en sekvens automatiskt utifrån reglerna. Du kan justera den för hand –
-      då markeras den med en gul prick. Du kan också skapa egna sekvenser helt utan grupper.</div>`;
+    const listCard = `<div class="card side-left"><h2>${T("Sekvenser")}</h2>
+      ${groups.length ? `<div class="lbl" style="margin-top:0">${T("Från grupper")}</div>${groups.map(([x, i]) => item(x, i)).join("")}` : ""}
+      ${own.length ? `<div class="lbl">${T("Egna")}</div>${own.map(([x, i]) => item(x, i)).join("")}` : ""}
+      ${!cfg.zones.length ? `<div class="hint">${T("Skapa grupper så får de sekvenser automatiskt, eller gör en egen sekvens för hand.")}</div>` : ""}
+      <div class="btns"><button class="primary" data-act="add-seq">${T("+ Ny egen sekvens")}</button></div>
+      <div class="hint" style="margin-top:10px"><span class="dotw y"></span> ${T("ändrad för hand")} &nbsp; <span class="dotw o"></span> ${T("gruppen har ändrats sedan dess")}</div></div>`;
+    const editor = z ? this._seqEditor(z) : `<div class="card empty">${T("Varje grupp får en sekvens automatiskt utifrån reglerna. Du kan justera den för hand – då markeras den med en gul prick. Du kan också skapa egna sekvenser helt utan grupper.")}</div>`;
     if (this._mobile) {
-      return `<div class="content">${listCard}${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-seq">‹ Tillbaka</button><b>${esc(z.name)}</b></div>
+      return `<div class="content">${listCard}${z ? `<div class="sheet"><div class="sheet-head"><button data-act="close-seq">‹ ${T("Tillbaka")}</button><b>${esc(z.name)}</b></div>
         <div class="sheet-body">${editor}</div></div>` : ""}</div>`;
     }
     return `<div class="content wide"><div class="flow-layout">${listCard}<div class="grow">${editor}</div></div></div>`;
@@ -1163,26 +1556,27 @@ class SequencerPanel extends HTMLElement {
     const nodes = Object.fromEntries(cfg.nodes.map((n) => [n.id, n]));
     let head = "";
     if (z.standalone) {
-      head = `<div class="row"><label class="grow">Namn<input data-zf="name" value="${esc(z.name)}" placeholder="T.ex. Gudstjänst"></label>
-          <label>Ikon<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:church"></label></div>
+      head = `<div class="row"><label class="grow">${T("Namn")}<input data-zf="name" value="${esc(z.name)}" placeholder="${T("T.ex. Gudstjänst")}"></label>
+          <label>${T("Ikon")}<input data-zf="icon" value="${esc(z.icon || "")}" placeholder="mdi:church"></label></div>
         <div class="swatches" style="margin-bottom:6px">${ZONE_COLORS.map((c) => `<button class="swatch ${z.color === c ? "sel" : ""}" style="background:${c}" data-act="zone-color" data-color="${c}"></button>`).join("")}</div>
-        <details><summary>Status-LED</summary><div class="row"><label class="grow">LED-entitet${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
-          <label>Släck efter (min)<input type="number" min="0" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div></details>`;
+        <details><summary>${T("Status-LED")}</summary><div class="row"><label class="grow">${T("LED-entitet")}${this._entityField('data-zf="led"', z.led, { domains: ["light", "switch"], placeholder: "Välj LED" })}</label>
+          <label>${T("Släck efter (min)")}<input type="number" min="0" data-zf="led_minutes" value="${esc(z.led_minutes ?? 30)}" style="width:90px"></label></div></details>`;
     } else {
-      head = `<div class="row-between"><h2 style="margin:0">${esc(z.name)}</h2><button class="small" data-act="goto-zone" data-id="${esc(z.id)}">Gruppens utrustning →</button></div>`;
-      if (!z.custom) head += `<div class="banner" style="background:var(--secondary-background-color)"><b>Automatisk.</b> Byggs av reglerna och gruppens utrustning och uppdateras av sig själv. Ändrar du något nedan blir den anpassad.</div>`;
+      head = `<div class="row-between"><h2 style="margin:0">${esc(z.name)}</h2><button class="small" data-act="goto-zone" data-id="${esc(z.id)}">${T("Gruppens utrustning →")}</button></div>`;
+      if (!z.custom) head += `<div class="banner" style="background:var(--secondary-background-color)">${T("<b>Automatisk.</b> Byggs av reglerna och gruppens utrustning och uppdateras av sig själv. Ändrar du något nedan blir den anpassad.")}</div>`;
       else if (seqOutdated(cfg, z)) {
         const auto = autoStart(cfg, z.id); const have = new Set(z.custom.start.filter((s) => !isMoment(s)).map((s) => s.node));
         const missing = auto.filter((n) => !have.has(n)); const extra = [...have].filter((n) => !auto.includes(n));
-        head += `<div class="banner o"><span class="dotw o"></span> <b>Gruppen eller reglerna har ändrats</b> sedan du anpassade sekvensen.
-          ${missing.length ? `<br>Saknas: ${missing.map((n) => esc(nodes[n]?.name || "?")).join(", ")}` : ""}
-          ${extra.length ? `<br>Ingår inte längre automatiskt: ${extra.map((n) => esc(nodes[n]?.name || "?")).join(", ")}` : ""}
-          ${!missing.length && !extra.length ? "<br>Den automatiska ordningen har ändrats." : ""}
-          <div class="btns" style="margin-top:6px">${missing.length ? `<button class="small primary" data-act="seq-addmissing">Lägg till saknade på föreslagen plats</button>` : ""}
-          <button class="small" data-act="seq-ignore">Behåll min version</button><button class="small" data-act="seq-reset">Återställ till automatisk</button></div></div>`;
-      } else head += `<div class="banner y"><span class="dotw y"></span> <b>Anpassad för hand.</b> Uppdateras inte längre automatiskt. <button class="small" data-act="seq-reset" style="margin-left:6px">Återställ till automatisk</button></div>`;
+        head += `<div class="banner o"><span class="dotw o"></span> ${T("<b>Gruppen eller reglerna har ändrats</b> sedan du anpassade sekvensen.")}
+          ${missing.length ? `<br>${T("Saknas: {0}", missing.map((n) => esc(nodes[n]?.name || "?")).join(", "))}` : ""}
+          ${extra.length ? `<br>${T("Ingår inte längre automatiskt: {0}", extra.map((n) => esc(nodes[n]?.name || "?")).join(", "))}` : ""}
+          ${!missing.length && !extra.length ? `<br>${T("Den automatiska ordningen har ändrats.")}` : ""}
+          <div class="btns" style="margin-top:6px">${missing.length ? `<button class="small primary" data-act="seq-addmissing">${T("Lägg till saknade på föreslagen plats")}</button>` : ""}
+          <button class="small" data-act="seq-ignore">${T("Behåll min version")}</button><button class="small" data-act="seq-reset">${T("Återställ till automatisk")}</button></div></div>`;
+      } else head += `<div class="banner y"><span class="dotw y"></span> ${T("<b>Anpassad för hand.</b> Uppdateras inte längre automatiskt.")} <button class="small" data-act="seq-reset" style="margin-left:6px">${T("Återställ till automatisk")}</button></div>`;
     }
-    const section = (which, title, hint) => {
+    const section = (which, titleSv, hintSv) => {
+      const title = T(titleSv), hint = T(hintSv);
       const steps = zoneSteps(cfg, z, which);
       const warns = ruleWarnings(cfg, steps, which);
       const others = cfg.zones.filter((o) => o.id !== z.id);
@@ -1195,28 +1589,28 @@ class SequencerPanel extends HTMLElement {
         const shared = which === "stop" ? others.filter((o) => zoneNeeds(cfg, o.id).has(n.id)).map((o) => o.name) : [];
         return `<div class="step" data-which="${which}" data-i="${i}"><span class="num">${i + 1}</span>${(IMAGES[n.image] || IMAGES.generic)[1]}
           <span class="t">${esc(n.name || "?")}
-            ${wait?.conditions?.length ? `<small>⏳ väntar på villkor först</small>` : ""}
-            ${(warns[n.id] || []).map((w) => `<small class="w">⚠ ${esc(w)} – körs ändå i din ordning</small>`).join("")}
-            ${shared.length ? `<small>Delas med ${esc(shared.join(", "))} – ${st.force ? "<b>stängs alltid av</b>" : "hoppas över om den är igång"}</small>` : ""}</span>
-          ${last ? "" : `<label style="flex-direction:row;align-items:center;gap:4px">vänta<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="${fmtSec(def || 0)}">s</label>`}
-          ${which === "stop" && shared.length ? `<label style="flex-direction:row;align-items:center;gap:4px;font-size:12px"><input type="checkbox" data-sforce="1" ${st.force ? "checked" : ""}>stäng alltid av</label>` : ""}
-          <button class="icon" data-act="seq-up" ${i === 0 ? "disabled" : ""} title="Flytta upp">▲</button>
-          <button class="icon" data-act="seq-down" ${last ? "disabled" : ""} title="Flytta ned">▼</button>
-          <button class="icon" data-act="seq-del" title="Ta bort steg">✕</button></div>`;
+            ${wait?.conditions?.length ? `<small>⏳ ${T("väntar på villkor först")}</small>` : ""}
+            ${(warns[n.id] || []).map((w) => `<small class="w">⚠ ${T("{0} – körs ändå i din ordning", esc(w))}</small>`).join("")}
+            ${shared.length ? `<small>${T("Delas med {0}", esc(shared.join(", ")))} – ${st.force ? T("<b>stängs alltid av</b>") : T("hoppas över om den är igång")}</small>` : ""}</span>
+          ${last ? "" : `<label style="flex-direction:row;align-items:center;gap:4px">${T("vänta")}<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="${fmtSec(def || 0)}">s</label>`}
+          ${which === "stop" && shared.length ? `<label style="flex-direction:row;align-items:center;gap:4px;font-size:12px"><input type="checkbox" data-sforce="1" ${st.force ? "checked" : ""}>${T("stäng alltid av")}</label>` : ""}
+          <button class="icon" data-act="seq-up" ${i === 0 ? "disabled" : ""} title="${T("Flytta upp")}">▲</button>
+          <button class="icon" data-act="seq-down" ${last ? "disabled" : ""} title="${T("Flytta ned")}">▼</button>
+          <button class="icon" data-act="seq-del" title="${T("Ta bort steg")}">✕</button></div>`;
       }).join("");
       const have = new Set(steps.map((s) => s.node));
       const avail = cfg.nodes.filter((n) => !have.has(n.id));
       return `<h3>${title}</h3><div class="hint" style="margin-bottom:6px">${hint}</div>
-        <div class="steps">${rows || `<div class="step"><span class="hint">Inga steg.</span></div>`}</div>
+        <div class="steps">${rows || `<div class="step"><span class="hint">${T("Inga steg.")}</span></div>`}</div>
         <div class="row" style="margin-top:8px">
-          ${avail.length ? `<select data-seqadd="${which}"><option value="">+ Lägg till utrustning…</option>${avail.map((n) => `<option value="${esc(n.id)}">${esc(n.name || "?")}</option>`).join("")}</select>` : ""}
-          <select data-momadd="${which}"><option value="">+ Lägg till moment…</option>${MOMENT_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>`;
+          ${avail.length ? `<select data-seqadd="${which}"><option value="">${T("+ Lägg till utrustning…")}</option>${avail.map((n) => `<option value="${esc(n.id)}">${esc(n.name || "?")}</option>`).join("")}</select>` : ""}
+          <select data-momadd="${which}"><option value="">${T("+ Lägg till moment…")}</option>${MOMENT_TYPES.map(([v, l]) => `<option value="${v}">${T(l)}</option>`).join("")}</select></div>`;
     };
     return `<div class="card">${head}
-      <div class="hint">Moment (färg, paus, DMX-scen …) följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de den inte heller – den fortsätter följa reglerna.</div>
+      <div class="hint">${T("Moment (färg, paus, DMX-scen …) följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de den inte heller – den fortsätter följa reglerna.")}</div>
       ${section("start", "Start", "Det som redan är igång (t.ex. från ett annat rum) hoppas över, och sekvensen fortsätter direkt. Tomt väntefält = utrustningens standard.")}
       ${section("stop", "Avstängning", "Utrustning som en annan grupp eller sekvens fortfarande använder hoppas över – om du inte kryssar i ”stäng alltid av”.")}
-      ${z.standalone ? `<div class="btns" style="margin-top:16px"><button class="danger small" data-act="del-seq">Ta bort sekvensen</button></div>` : ""}</div>`;
+      ${z.standalone ? `<div class="btns" style="margin-top:16px"><button class="danger small" data-act="del-seq">${T("Ta bort sekvensen")}</button></div>` : ""}</div>`;
   }
 
   _momentRow(z, st, which, i, last, steps) {
@@ -1225,36 +1619,36 @@ class SequencerPanel extends HTMLElement {
     const auto = !z.custom;
     let summary = "";
     if (type === "pause") summary = `${fmtSec(st.delay ?? 0)} s`;
-    else if (type === "wait") { const c = st.wait.conditions[0] || {}; summary = `${this._friendly(c.entity_id || "?")} = ${c.state || "något"} (max ${fmtSec(st.wait.timeout ?? 60)} s)`; }
-    else if (type === "light") summary = `${(st.entities || []).map((e) => this._friendly(e)).join(", ") || "ingen lampa vald"} · ${st.spec.brightness ?? 100} %${st.spec.color_mode === "rgb" ? ` · <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${esc(st.spec.rgb)}"></span>` : st.spec.color_mode === "temp" ? ` · ${st.spec.kelvin} K` : ""}`;
-    else if (type === "dmx") summary = `${esc(st.spec.channels || "inga kanaler")}`;
-    else if (type === "service") summary = esc(st.spec.service || "ingen tjänst vald");
-    else summary = (st.entities || []).map((e) => esc(this._friendly(e))).join(", ") || "ingen entitet vald";
+    else if (type === "wait") { const c = st.wait.conditions[0] || {}; summary = `${this._friendly(c.entity_id || "?")} = ${c.state || T("något")} (max ${fmtSec(st.wait.timeout ?? 60)} s)`; }
+    else if (type === "light") summary = `${(st.entities || []).map((e) => this._friendly(e)).join(", ") || T("ingen lampa vald")} · ${st.spec.brightness ?? 100} %${st.spec.color_mode === "rgb" ? ` · <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${esc(st.spec.rgb)}"></span>` : st.spec.color_mode === "temp" ? ` · ${st.spec.kelvin} K` : ""}`;
+    else if (type === "dmx") summary = `${esc(st.spec.channels || T("inga kanaler"))}`;
+    else if (type === "service") summary = esc(st.spec.service || T("ingen tjänst vald"));
+    else summary = (st.entities || []).map((e) => esc(this._friendly(e))).join(", ") || T("ingen entitet vald");
     const row = `<div class="step" data-which="${which}" data-i="${i}" data-mid="${esc(st.id)}" style="background:color-mix(in srgb, var(--primary-color) 5%, transparent)">
       <span class="num" style="background:var(--secondary-text-color)">${i + 1}</span><span style="font-size:20px;width:34px;text-align:center">${MOMENT_ICON[type] || "•"}</span>
-      <span class="t">${esc(st.name || "Moment")}<small>Moment · ${summary}</small></span>
-      ${type !== "pause" && !last ? `<label style="flex-direction:row;align-items:center;gap:4px">vänta<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="0">s</label>` : ""}
-      ${type === "pause" ? `<label style="flex-direction:row;align-items:center;gap:4px">längd<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? 0}">s</label>` : ""}
-      <button class="small" data-act="mom-edit">${open ? "Klar" : "Ändra"}</button>
+      <span class="t"><span translate="no">${esc(st.name || T("Moment"))}</span><small>${T("Moment")} · ${summary}</small></span>
+      ${type !== "pause" && !last ? `<label style="flex-direction:row;align-items:center;gap:4px">${T("vänta")}<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? ""}" placeholder="0">s</label>` : ""}
+      ${type === "pause" ? `<label style="flex-direction:row;align-items:center;gap:4px">${T("längd")}<input type="number" min="0" step="0.5" data-sd="1" value="${st.delay ?? 0}">s</label>` : ""}
+      <button class="small" data-act="mom-edit">${open ? T("Klar") : T("Ändra")}</button>
       ${auto ? "" : `<button class="icon" data-act="seq-up" ${i === 0 ? "disabled" : ""}>▲</button><button class="icon" data-act="seq-down" ${last ? "disabled" : ""}>▼</button>`}
-      <button class="icon" data-act="seq-del" title="Ta bort moment">✕</button></div>`;
+      <button class="icon" data-act="seq-del" title="${T("Ta bort moment")}">✕</button></div>`;
     if (!open) return row;
-    let body = `<label>Namn<input data-mf="name" value="${esc(st.name || "")}"></label>`;
+    let body = `<label>${T("Namn")}<input data-mf="name" value="${esc(st.name || "")}"></label>`;
     if (auto) {
       const base = steps.filter((x) => !isMoment(x));
       const entry = (z.extras?.[which] || []).find((e) => e.step === st || e.step.id === st.id);
-      body += `<label style="margin-top:8px">Placering<select data-mf="__after"><option value="">Först</option>${base.map((b) => `<option value="${esc(b.node)}" ${entry?.after === b.node ? "selected" : ""}>Efter ${esc(this._draft.nodes.find((n) => n.id === b.node)?.name || "?")}</option>`).join("")}</select></label>`;
+      body += `<label style="margin-top:8px">${T("Placering")}<select data-mf="__after"><option value="">${T("Först")}</option>${base.map((b) => `<option value="${esc(b.node)}" ${entry?.after === b.node ? "selected" : ""}>${T("Efter {0}", esc(this._draft.nodes.find((n) => n.id === b.node)?.name || "?"))}</option>`).join("")}</select></label>`;
     }
     if (type === "wait") {
       const c = st.wait.conditions[0];
-      body += `<div class="row" style="margin-top:8px"><label class="grow">Entitet${this._entityField('data-mf="wait.conditions.0.entity_id"', c.entity_id)}</label>
-        <label>Attribut<input data-mf="wait.conditions.0.attribute" value="${esc(c.attribute || "")}" style="width:100px"></label>
-        <label>= värde<input data-mf="wait.conditions.0.state" value="${esc(c.state || "")}" style="width:100px"></label>
+      body += `<div class="row" style="margin-top:8px"><label class="grow">${T("Entitet")}${this._entityField('data-mf="wait.conditions.0.entity_id"', c.entity_id)}</label>
+        <label>${T("Attribut")}<input data-mf="wait.conditions.0.attribute" value="${esc(c.attribute || "")}" style="width:100px"></label>
+        <label>${T("= värde")}<input data-mf="wait.conditions.0.state" value="${esc(c.state || "")}" style="width:100px"></label>
         <label>Max (s)<input type="number" min="1" data-mf="wait.timeout" value="${esc(st.wait.timeout ?? 60)}" style="width:80px"></label></div>`;
     } else if (type !== "pause") {
-      if (type !== "dmx" && type !== "service") body += `<div class="lbl">Entiteter</div>${this._chips(st.entities, "step", type === "light" ? ["light"] : null)}`;
-      if (type === "service") body += `<label style="margin-top:8px">Tjänst<input data-mf="spec.service" list="services" value="${esc(st.spec.service || "")}" placeholder="t.ex. scene.turn_on"></label>
-        <label style="margin-top:8px">Data (JSON)<textarea data-mf="spec._dataText">${esc(st.spec._dataText || "")}</textarea></label>`;
+      if (type !== "dmx" && type !== "service") body += `<div class="lbl">${T("Entiteter")}</div>${this._chips(st.entities, "step", type === "light" ? ["light"] : null)}`;
+      if (type === "service") body += `<label style="margin-top:8px">${T("Tjänst")}<input data-mf="spec.service" list="services" value="${esc(st.spec.service || "")}" placeholder="${T("t.ex. scene.turn_on")}"></label>
+        <label style="margin-top:8px">${T("Data (JSON)")}<textarea data-mf="spec._dataText">${esc(st.spec._dataText || "")}</textarea></label>`;
       body += this._actionFields(st, "spec", st.spec.action, st.spec, "data-mf");
     }
     return row + `<div class="step" style="display:block;padding:10px 14px 14px 52px">${body}</div>`;
@@ -1271,13 +1665,13 @@ class SequencerPanel extends HTMLElement {
 
   _newMoment(type) {
     const st = { kind: "action", id: uid(), name: "", entities: [], spec: { action: "none" }, wait: null, delay: null };
-    if (type === "light") Object.assign(st, { name: "Ljus", spec: { action: "light", brightness: 100, transition: 2, color_mode: "rgb", rgb: "#ffffff" } });
-    if (type === "turn_on") Object.assign(st, { name: "Slå på", spec: { action: "turn_on" } });
-    if (type === "turn_off") Object.assign(st, { name: "Stäng av", spec: { action: "turn_off" } });
-    if (type === "pause") Object.assign(st, { name: "Paus", delay: 5 });
-    if (type === "wait") Object.assign(st, { name: "Vänta tills…", wait: { mode: "all", timeout: 60, on_timeout: "continue", conditions: [{ entity_id: "", attribute: "", state: "on" }] } });
-    if (type === "dmx") Object.assign(st, { name: "DMX-scen", spec: { action: "dmx", protocol: "artnet", universe: 0, host: "", channels: "", fade: 2 } });
-    if (type === "service") Object.assign(st, { name: "Tjänst", spec: { action: "service", service: "", _dataText: "" } });
+    if (type === "light") Object.assign(st, { name: T("Ljus"), spec: { action: "light", brightness: 100, transition: 2, color_mode: "rgb", rgb: "#ffffff" } });
+    if (type === "turn_on") Object.assign(st, { name: T("Slå på"), spec: { action: "turn_on" } });
+    if (type === "turn_off") Object.assign(st, { name: T("Stäng av"), spec: { action: "turn_off" } });
+    if (type === "pause") Object.assign(st, { name: T("Paus"), delay: 5 });
+    if (type === "wait") Object.assign(st, { name: T("Vänta tills…"), wait: { mode: "all", timeout: 60, on_timeout: "continue", conditions: [{ entity_id: "", attribute: "", state: "on" }] } });
+    if (type === "dmx") Object.assign(st, { name: T("DMX-scen"), spec: { action: "dmx", protocol: "artnet", universe: 0, host: "", channels: "", fade: 2 } });
+    if (type === "service") Object.assign(st, { name: T("Tjänst"), spec: { action: "service", service: "", _dataText: "" } });
     return st;
   }
 
@@ -1300,23 +1694,22 @@ class SequencerPanel extends HTMLElement {
   _remotesTab() {
     const cfg = this._draft;
     const r = cfg.remotes.find((x) => x.id === this._sel.remote);
-    const zname = (id) => id === ALL ? "Alla grupper" : esc(cfg.zones.find((z) => z.id === id)?.name || "?");
+    const zname = (id) => id === ALL ? T("Alla grupper") : esc(cfg.zones.find((z) => z.id === id)?.name || "?");
     const list = cfg.remotes.map((x) => `<div class="list-item ${x.id === this._sel.remote ? "sel" : ""}" data-act-item="remote" data-id="${esc(x.id)}">
-      <span class="t">${esc(x.name || "Namnlös knapp")}${x.enabled === false ? " <small style='display:inline'>(av)</small>" : ""}
-      <small>${ZONE_ACTION_LABEL[x.action] || ""} ${zname(x.target)}</small><small data-rstat="${esc(x.id)}"></small></span></div>`).join("");
+      <span class="t">${esc(x.name || T("Namnlös knapp"))}${x.enabled === false ? ` <small style='display:inline'>(${T("av")})</small>` : ""}
+      <small>${T(ZONE_ACTION_LABEL[x.action] || "")} ${zname(x.target)}</small><small data-rstat="${esc(x.id)}"></small></span></div>`).join("");
     if (this._mobile) {
-      return `<div class="content"><div class="card"><h2>Fjärrkontroller</h2>${list || `<div class="hint">Inga knappar kopplade ännu. Koppla knappar på fjärrkontroller direkt till grupperna – tryck på Lyssna och sedan på knappen.</div>`}
-        <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>+ Koppla en knapp</button></div>
-        ${cfg.zones.length ? "" : `<div class="hint" style="margin-top:8px">Skapa en grupp först.</div>`}</div>
-        ${r ? `<div class="sheet"><div class="sheet-head"><button data-act="close-remote">‹ Tillbaka</button><b>${esc(r.name || "Knapp")}</b></div>
+      return `<div class="content"><div class="card"><h2>${T("Fjärrkontroller")}</h2>${list || `<div class="hint">${T("Inga knappar kopplade ännu. Koppla knappar på fjärrkontroller direkt till grupperna – tryck på Lyssna och sedan på knappen.")}</div>`}
+        <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>${T("+ Koppla en knapp")}</button></div>
+        ${cfg.zones.length ? "" : `<div class="hint" style="margin-top:8px">${T("Skapa en grupp först.")}</div>`}</div>
+        ${r ? `<div class="sheet"><div class="sheet-head"><button data-act="close-remote">‹ ${T("Tillbaka")}</button><b>${esc(r.name || T("Knapp"))}</b></div>
           <div class="sheet-body">${this._remoteEditor(r)}</div></div>` : ""}</div>`;
     }
     return `<div class="content wide"><div class="flow-layout">
-      <div class="card side-left"><h2>Fjärrkontroller</h2>${list || `<div class="hint">Inga knappar kopplade ännu.</div>`}
-        <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>+ Koppla en knapp</button></div>
-        ${cfg.zones.length ? "" : `<div class="hint" style="margin-top:8px">Skapa en grupp först.</div>`}</div>
-      <div class="grow">${r ? this._remoteEditor(r) : `<div class="card empty">Koppla knappar på fjärrkontroller (Zigbee, Z-Wave, Hue, Shelly, IKEA …)
-        direkt till grupperna. Enklast är <b>Lyssna</b>: tryck på knappen så hittar panelen den åt dig.</div>`}</div>
+      <div class="card side-left"><h2>${T("Fjärrkontroller")}</h2>${list || `<div class="hint">${T("Inga knappar kopplade ännu.")}</div>`}
+        <div class="btns"><button class="primary" data-act="add-remote" ${cfg.zones.length ? "" : "disabled"}>${T("+ Koppla en knapp")}</button></div>
+        ${cfg.zones.length ? "" : `<div class="hint" style="margin-top:8px">${T("Skapa en grupp först.")}</div>`}</div>
+      <div class="grow">${r ? this._remoteEditor(r) : `<div class="card empty">${T("Koppla knappar på fjärrkontroller (Zigbee, Z-Wave, Hue, Shelly, IKEA …) direkt till grupperna. Enklast är <b>Lyssna</b>: tryck på knappen så hittar panelen den åt dig.")}</div>`}</div>
     </div></div>`;
   }
 
@@ -1324,47 +1717,47 @@ class SequencerPanel extends HTMLElement {
     const cfg = this._draft;
     const kind = this._rkind || r.kind || "learn";
     const t = r.trigger;
-    const kinds = [["learn", `${ICON_PRESS}Lyssna`], ["device", "Enhet"], ["entity", "Entitet"], ["event", "Händelse"]];
+    const kinds = [["learn", `${ICON_PRESS}${T("Lyssna")}`], ["device", T("Enhet")], ["entity", T("Entitet")], ["event", T("Händelse")]];
     let body = "";
     if (kind === "learn") {
       const on = this._learn?.target === "remote";
-      body = `<button class="primary ${on ? "learn-on" : ""}" data-act="learn-toggle" data-target="remote">${on ? `Lyssnar… <span data-learn-left></span> s – klicka för att sluta` : "Börja lyssna"}</button>
+      body = `<button class="primary ${on ? "learn-on" : ""}" data-act="learn-toggle" data-target="remote">${on ? T("Lyssnar… {0} s – klicka för att sluta", "<span data-learn-left></span>") : T("Börja lyssna")}</button>
         ${on ? this._learnList("Tryck på knappen på fjärrkontrollen. Allt som händer visas nedan – välj rätt rad.", "Använd") : ""}`;
     } else if (kind === "device") {
       const devs = Object.values(this._hass.devices || {}).filter((d) => !d.disabled_by)
         .map((d) => ({ id: d.id, name: d.name_by_user || d.name || d.id, area: this._hass.areas?.[d.area_id]?.name }))
-        .sort((a, b) => a.name.localeCompare(b.name, "sv"));
+        .sort((a, b) => a.name.localeCompare(b.name, LANG));
       const devId = t?.platform === "device" || t?.trigger === "device" ? t.device_id : this._pendingDevice;
       const trigs = this._devTriggers;
       const curIdx = trigs ? trigs.findIndex((x) => devId === t?.device_id && ["type", "subtype", "domain", "entity_id"].every((k) => (x[k] ?? null) === (t?.[k] ?? null))) : -1;
-      body = `<label>Enhet<select data-rdev><option value="">Välj enhet…</option>${devs.map((d) => `<option value="${esc(d.id)}" ${d.id === devId ? "selected" : ""}>${esc(d.name)}${d.area ? ` (${esc(d.area)})` : ""}</option>`).join("")}</select></label>
-        ${devId ? (trigs ? (trigs.length ? `<label style="margin-top:8px">Knapp / händelse<select data-rtrig><option value="">Välj…</option>${trigs.map((x, i) => `<option value="${i}" ${i === curIdx ? "selected" : ""}>${esc(this._devTrigLabel(x))}</option>`).join("")}</select></label>`
-          : `<div class="hint" style="margin-top:8px">Enheten har inga knapphändelser. Prova Lyssna eller Entitet.</div>`) : `<div class="hint" style="margin-top:8px">Hämtar…</div>`) : ""}`;
+      body = `<label>${T("Enhet")}<select data-rdev><option value="">${T("Välj enhet…")}</option>${devs.map((d) => `<option value="${esc(d.id)}" ${d.id === devId ? "selected" : ""}>${esc(d.name)}${d.area ? ` (${esc(d.area)})` : ""}</option>`).join("")}</select></label>
+        ${devId ? (trigs ? (trigs.length ? `<label style="margin-top:8px">${T("Knapp / händelse")}<select data-rtrig><option value="">${T("Välj…")}</option>${trigs.map((x, i) => `<option value="${i}" ${i === curIdx ? "selected" : ""}>${esc(this._devTrigLabel(x))}</option>`).join("")}</select></label>`
+          : `<div class="hint" style="margin-top:8px">${T("Enheten har inga knapphändelser. Prova Lyssna eller Entitet.")}</div>`) : `<div class="hint" style="margin-top:8px">${T("Hämtar…")}</div>`) : ""}`;
       if (devId && !trigs) this._loadDevTriggers(devId);
     } else if (kind === "entity") {
       const eid = t?.platform === "state" ? [].concat(t.entity_id)[0] : "";
       const st = this._hass.states[eid];
       const isEvent = eid.startsWith("event.");
-      body = `<label>Entitet${this._entityField("data-rent", eid, { placeholder: "Välj knapp, event eller action-sensor" })}</label>
-        ${eid && isEvent ? `<label style="margin-top:8px">Händelsetyp<select data-revt><option value="">Alla</option>${(st?.attributes.event_types || []).map((x) => `<option ${r.event_type === x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`
-          : eid ? `<label style="margin-top:8px">När läget blir (tomt = varje ändring)<input data-rto value="${esc(t?.to ?? "")}" placeholder="t.ex. on, single, 1_single"></label>` : ""}`;
+      body = `<label>${T("Entitet")}${this._entityField("data-rent", eid, { placeholder: "Välj knapp, event eller action-sensor" })}</label>
+        ${eid && isEvent ? `<label style="margin-top:8px">${T("Händelsetyp")}<select data-revt><option value="">${T("Alla")}</option>${(st?.attributes.event_types || []).map((x) => `<option ${r.event_type === x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>`
+          : eid ? `<label style="margin-top:8px">${T("När läget blir (tomt = varje ändring)")}<input data-rto value="${esc(t?.to ?? "")}" placeholder="${T("t.ex. on, single, 1_single")}"></label>` : ""}`;
     } else {
-      body = `<label>Händelsetyp<input data-revname value="${esc(t?.platform === "event" ? t.event_type : "")}" placeholder="t.ex. zha_event, deconz_event, hue_event"></label>
-        <label style="margin-top:8px">Händelsedata som ska matcha (JSON)<textarea data-revdata placeholder='{"device_ieee": "…", "command": "on"}'>${esc(r._dataText || "")}</textarea></label>`;
+      body = `<label>${T("Händelsetyp")}<input data-revname value="${esc(t?.platform === "event" ? t.event_type : "")}" placeholder="${T("t.ex. zha_event, deconz_event, hue_event")}"></label>
+        <label style="margin-top:8px">${T("Händelsedata som ska matcha (JSON)")}<textarea data-revdata placeholder='{"device_ieee": "…", "command": "on"}'>${esc(r._dataText || "")}</textarea></label>`;
     }
     return `<div class="card">
-      <div class="row"><label class="grow">Namn<input data-rf="name" value="${esc(r.name || "")}" placeholder="T.ex. Fjärr vardagsrum – PÅ"></label>
-        <label style="flex-direction:row;align-items:center;gap:6px;padding-bottom:8px"><input type="checkbox" data-rf="enabled" ${r.enabled !== false ? "checked" : ""}> Aktiv</label></div>
-      <div class="lbl">När knappen trycks</div>
-      <div class="row"><label>Gör<select data-rf="action">${["toggle", "start", "stop"].map((a) => `<option value="${a}" ${r.action === a ? "selected" : ""}>${ZONE_ACTION_LABEL[a]}</option>`).join("")}</select></label>
-        <label class="grow">Grupp / sekvens<select data-rf="target">${cfg.zones.map((z) => `<option value="${esc(z.id)}" ${r.target === z.id ? "selected" : ""}>${z.standalone ? "Sekvens: " : ""}${esc(z.name)}</option>`).join("")}<option value="${ALL}" ${r.target === ALL ? "selected" : ""}>Alla grupper</option></select></label></div>
-      <div class="lbl">Knapp</div>
-      <div class="current">${t ? esc(this._triggerText(r)) : `<span class="hint">Ingen knapp vald än</span>`}</div>
+      <div class="row"><label class="grow">${T("Namn")}<input data-rf="name" value="${esc(r.name || "")}" placeholder="${T("T.ex. Fjärr vardagsrum – PÅ")}"></label>
+        <label style="flex-direction:row;align-items:center;gap:6px;padding-bottom:8px"><input type="checkbox" data-rf="enabled" ${r.enabled !== false ? "checked" : ""}> ${T("Aktiv")}</label></div>
+      <div class="lbl">${T("När knappen trycks")}</div>
+      <div class="row"><label>${T("Gör")}<select data-rf="action">${["toggle", "start", "stop"].map((a) => `<option value="${a}" ${r.action === a ? "selected" : ""}>${T(ZONE_ACTION_LABEL[a])}</option>`).join("")}</select></label>
+        <label class="grow">${T("Grupp / sekvens")}<select data-rf="target">${cfg.zones.map((z) => `<option value="${esc(z.id)}" ${r.target === z.id ? "selected" : ""}>${z.standalone ? T("Sekvens: ") : ""}${esc(z.name)}</option>`).join("")}<option value="${ALL}" ${r.target === ALL ? "selected" : ""}>${T("Alla grupper")}</option></select></label></div>
+      <div class="lbl">${T("Knapp")}</div>
+      <div class="current">${t ? esc(this._triggerText(r)) : `<span class="hint">${T("Ingen knapp vald än")}</span>`}</div>
       <div class="hint" data-rstat="${esc(r.id)}" style="margin-top:4px"></div>
       <div class="seg">${kinds.map(([k, l]) => `<button class="${kind === k ? "sel" : ""}" data-act="rkind" data-kind="${k}">${l}</button>`).join("")}</div>
       ${body}
-      <div class="btns" style="margin-top:20px"><button class="danger small" data-act="del-remote">Ta bort</button></div>
-      <div class="hint" style="margin-top:8px">Ändringar börjar gälla när du sparar.</div></div>`;
+      <div class="btns" style="margin-top:20px"><button class="danger small" data-act="del-remote">${T("Ta bort")}</button></div>
+      <div class="hint" style="margin-top:8px">${T("Ändringar börjar gälla när du sparar.")}</div></div>`;
   }
 
   _devTrigLabel(x) {
@@ -1377,20 +1770,20 @@ class SequencerPanel extends HTMLElement {
     const p = t.platform || t.trigger;
     if (p === "device") {
       const d = this._hass.devices?.[t.device_id];
-      return `${d ? d.name_by_user || d.name : "Enhet"}: ${this._devTrigLabel(t)}`;
+      return `${d ? d.name_by_user || d.name : T("Enhet")}: ${this._devTrigLabel(t)}`;
     }
     if (p === "state") {
       const id = [].concat(t.entity_id)[0];
-      return `${this._friendly(id)}${r.event_type ? ` → ${r.event_type}` : t.to != null ? ` = ${t.to}` : " (varje ändring)"}`;
+      return `${this._friendly(id)}${r.event_type ? ` → ${r.event_type}` : t.to != null ? ` = ${t.to}` : T(" (varje ändring)")}`;
     }
-    if (p === "event") return `Händelse ${t.event_type} ${t.event_data && Object.keys(t.event_data).length ? JSON.stringify(t.event_data) : ""}`;
+    if (p === "event") return `${T("Händelse")} ${t.event_type} ${t.event_data && Object.keys(t.event_data).length ? JSON.stringify(t.event_data) : ""}`;
     return JSON.stringify(t);
   }
 
   _candLabel(c) {
     if (c.kind === "entity") return `<b>${esc(c.name)}</b> <small>${esc(c.entity_id)}</small><br><small>${esc(c.from)} → ${esc(c.to)}</small>`;
-    if (c.kind === "event_entity") return `<b>${esc(c.name)}</b> → ${esc(c.event_type || "händelse")}`;
-    if (c.kind === "button") return `<b>${esc(c.name)}</b> tryckt`;
+    if (c.kind === "event_entity") return `<b>${esc(c.name)}</b> → ${esc(c.event_type || T("händelse"))}`;
+    if (c.kind === "button") return `<b>${esc(c.name)}</b> ${T("tryckt")}`;
     if (c.kind === "state") return `<b>${esc(c.name)}</b> = ${esc(c.to)}`;
     const d = JSON.stringify(c.event_data);
     return `<b>${esc(c.event_type)}</b> <small>${esc(d.length > 160 ? d.slice(0, 160) + "…" : d)}</small>`;
@@ -1436,7 +1829,7 @@ class SequencerPanel extends HTMLElement {
       this._useCandidate(c, d.remotes.find((x) => x.id === this._sel.remote));
     } else if (target === "new") {
       const exists = d.nodes.find((n) => (n.entities || []).includes(c.entity_id));
-      if (exists) { this._sel.node = exists.id; this._toast(`${c.name} finns redan i schemat.`); }
+      if (exists) { this._sel.node = exists.id; this._toast(T("{0} finns redan i schemat.", c.name)); }
       else {
         const n = { id: uid(), name: c.name, image: guessImage(c), entities: [c.entity_id], on: { action: "turn_on", _dataText: "" }, off: { action: "turn_off", _dataText: "" },
           delay_on: 2, delay_off: 1, rank: "normal", wait_on: null, wait_off: null, ...this._freeSpot() };
@@ -1516,7 +1909,7 @@ class SequencerPanel extends HTMLElement {
       case "close-node": this._sel.node = null; this._stopLearn(); this._render(); return;
       case "del-node": {
         const id = this._sel.node; const n = this._node(id);
-        if (!confirm(`Ta bort "${n?.name || "utrustningen"}"?`)) return;
+        if (!confirm(T("Ta bort \"{0}\"?", n?.name || T("utrustningen")))) return;
         d.nodes = d.nodes.filter((x) => x.id !== id);
         d.edges = d.edges.filter((e) => e.from !== id && e.to !== id);
         d.zones.forEach((z) => {
@@ -1528,7 +1921,7 @@ class SequencerPanel extends HTMLElement {
       case "del-edge":
         d.edges = d.edges.filter((e) => !(e.from === this._sel.edge.from && e.to === this._sel.edge.to));
         this._sel.edge = null; this._markDirty(); this._render(); return;
-      case "set-image": { const n = this._node(this._sel.node); n.image = btn.dataset.img; if (!n.name) n.name = IMAGES[n.image][0]; this._markDirty(); this._render(); return; }
+      case "set-image": { const n = this._node(this._sel.node); n.image = btn.dataset.img; if (!n.name) n.name = T(IMAGES[n.image][0]); this._markDirty(); this._render(); return; }
       case "del-entity": {
         const list = this._entityList(btn.dataset.ctx); list.splice(Number(btn.dataset.i), 1); this._markDirty(); this._render(); return;
       }
@@ -1545,9 +1938,9 @@ class SequencerPanel extends HTMLElement {
       }
       case "test-node": {
         const n = this._node(this._sel.node);
-        if (btn.dataset.on !== "1" && n.off?.action === "rpc_shutdown" && !confirm(`Stänga av datorn ${n.off.host || ""} nu?`)) return;
+        if (btn.dataset.on !== "1" && n.off?.action === "rpc_shutdown" && !confirm(T("Stänga av datorn {0} nu?", n.off.host || ""))) return;
         try { await this._hass.callWS({ type: "sequencer/node/test", node: this._cleanNode(n), on: btn.dataset.on === "1" }); }
-        catch (e) { this._toast(`Test misslyckades: ${e.message || e}`, true); }
+        catch (e) { this._toast(T("Test misslyckades: {0}", e.message || e), true); }
         return;
       }
       case "edit-node": this._tab = "flow"; this._sub = "schema"; this._sel.node = btn.dataset.id; this._sel.edge = null; this._render(); return;
@@ -1562,12 +1955,12 @@ class SequencerPanel extends HTMLElement {
       case "del-rule": d.edges.splice(Number(btn.dataset.i), 1); this._markDirty(); this._render(); return;
 
       case "add-zone": {
-        const z = { id: uid(), name: `Grupp ${d.zones.filter((x) => !x.standalone).length + 1}`, icon: "", color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], nodes: [], standalone: false, custom: null };
+        const z = { id: uid(), name: T("Grupp {0}", d.zones.filter((x) => !x.standalone).length + 1), icon: "", color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], nodes: [], standalone: false, custom: null };
         d.zones.push(z); this._sel.zone = z.id; this._markDirty(); this._render(); return;
       }
       case "del-zone": {
         const z = d.zones.find((x) => x.id === this._sel.zone);
-        if (!confirm(`Ta bort gruppen "${z.name}"?`)) return;
+        if (!confirm(T("Ta bort gruppen \"{0}\"?", z.name))) return;
         d.zones = d.zones.filter((x) => x.id !== z.id);
         d.remotes.forEach((r) => { if (r.target === z.id) r.target = ALL; });
         this._sel.zone = null; this._markDirty(); this._render(); return;
@@ -1606,16 +1999,16 @@ class SequencerPanel extends HTMLElement {
       case "goto-seq": this._tab = "seqs"; this._sel.seq = btn.dataset.id; this._render(); window.scrollTo(0, 0); return;
       case "goto-zone": this._tab = "zones"; this._sel.zone = btn.dataset.id; this._render(); window.scrollTo(0, 0); return;
       case "add-seq": {
-        const z = { id: uid(), name: `Sekvens ${d.zones.filter((x) => x.standalone).length + 1}`, icon: "", standalone: true, nodes: [],
+        const z = { id: uid(), name: T("Sekvens {0}", d.zones.filter((x) => x.standalone).length + 1), icon: "", standalone: true, nodes: [],
           color: ZONE_COLORS[d.zones.length % ZONE_COLORS.length], custom: { start: [], stop: [], base_start: [], base_stop: [] }, led: "", led_minutes: 30 };
         d.zones.push(z); this._sel.seq = z.id; this._markDirty(); this._render(); return;
       }
       case "del-seq": {
-        const z = this._curZone(); if (!confirm(`Ta bort sekvensen "${z.name}"?`)) return;
+        const z = this._curZone(); if (!confirm(T("Ta bort sekvensen \"{0}\"?", z.name))) return;
         d.zones = d.zones.filter((x) => x.id !== z.id); d.remotes.forEach((r) => { if (r.target === z.id) r.target = ALL; });
         this._sel.seq = null; this._markDirty(); this._render(); return;
       }
-      case "seq-reset": { const z = this._curZone(); if (!confirm("Återställa till den automatiska sekvensen? Dina ändringar försvinner.")) return; z.custom = null; this._markDirty(); this._render(); return; }
+      case "seq-reset": { const z = this._curZone(); if (!confirm(T("Återställa till den automatiska sekvensen? Dina ändringar försvinner."))) return; z.custom = null; this._markDirty(); this._render(); return; }
       case "seq-ignore": { const z = this._curZone(); const a = autoStart(d, z.id); z.custom.base_start = a; z.custom.base_stop = [...a].reverse(); this._markDirty(); this._render(); return; }
       case "seq-addmissing": {
         const z = this._curZone(); const a = autoStart(d, z.id);
@@ -1700,7 +2093,7 @@ class SequencerPanel extends HTMLElement {
       this._setPath(n, t.dataset.nf, num ? (t.value === "" ? "" : Number(t.value)) : t.value);
       const show = this._main.querySelector(`[data-show="${t.dataset.nf}"]`);
       if (show) show.textContent = `${t.value}${t.dataset.nf.endsWith("kelvin") ? " K" : " %"}`;
-      if (t.dataset.nf === "name") { const el = this._main.querySelector(`.node[data-id="${CSS.escape(n.id)}"] .nname`); if (el) el.textContent = t.value || IMAGES[n.image]?.[0]; }
+      if (t.dataset.nf === "name") { const el = this._main.querySelector(`.node[data-id="${CSS.escape(n.id)}"] .nname`); if (el) el.textContent = t.value || T(IMAGES[n.image]?.[0] || ""); }
       this._markDirty();
     } else if (t.dataset.cf) {
       const c = t.closest("[data-ci]"); const n = this._node(this._sel.node);
@@ -1902,26 +2295,26 @@ class SequencerPanel extends HTMLElement {
   _parseData(text, label) {
     if (!text || !text.trim()) return {};
     let v;
-    try { v = JSON.parse(text); } catch (e) { throw new Error(`${label}: ogiltig JSON.`); }
-    if (typeof v !== "object" || v === null || Array.isArray(v)) throw new Error(`${label}: extra data måste vara ett JSON-objekt.`);
+    try { v = JSON.parse(text); } catch (e) { throw new Error(T("{0}: ogiltig JSON.", label)); }
+    if (typeof v !== "object" || v === null || Array.isArray(v)) throw new Error(T("{0}: extra data måste vara ett JSON-objekt.", label));
     return v;
   }
 
   _cleanNode(n) {
-    const label = n.name || "Utrustning";
+    const label = n.name || T("Utrustning");
     const spec = (s, def) => {
       s = s || {};
       const action = s.action || def;
-      if (action === "service" && !ENTITY_RE.test(s.service || "")) throw new Error(`${label}: ange tjänst som domän.tjänst.`);
+      if (action === "service" && !ENTITY_RE.test(s.service || "")) throw new Error(T("{0}: ange tjänst som domän.tjänst.", label));
       const withData = ["turn_on", "turn_off", "service", "light"].includes(action);
       const out = { action, service: action === "service" ? s.service : "", data: withData ? this._parseData(s._dataText, label) : {} };
       const pick = (keys) => { for (const k of keys) if (s[k] !== undefined && s[k] !== "") out[k] = s[k]; };
       if (action === "light") pick(["brightness", "transition", "color_mode", "rgb", "kelvin", "wait"]);
       if (action === "light_off") pick(["transition", "wait"]);
-      if (action === "wol") { if (!MAC_RE.test(s.mac || "")) throw new Error(`${label}: ogiltig MAC-adress.`); pick(["mac", "broadcast", "port"]); }
-      if (action === "rpc_shutdown") { if (!s.host || !s.username) throw new Error(`${label}: ange dator och användare för Windows-avstängning.`); pick(["host", "username", "password", "domain", "timeout", "force", "reboot"]); }
+      if (action === "wol") { if (!MAC_RE.test(s.mac || "")) throw new Error(T("{0}: ogiltig MAC-adress.", label)); pick(["mac", "broadcast", "port"]); }
+      if (action === "rpc_shutdown") { if (!s.host || !s.username) throw new Error(T("{0}: ange dator och användare för Windows-avstängning.", label)); pick(["host", "username", "password", "domain", "timeout", "force", "reboot"]); }
       if (action === "dmx") {
-        try { if (!Object.keys(parseChannels(s.channels)).length) throw new Error("ange minst en kanal"); } catch (e) { throw new Error(`${label} (DMX): ${e.message}`); }
+        try { if (!Object.keys(parseChannels(s.channels)).length) throw new Error(T("ange minst en kanal")); } catch (e) { throw new Error(`${label} (DMX): ${e.message}`); }
         pick(["protocol", "host", "universe", "channels", "fade", "wait"]);
       }
       if (action === "dmx_off") pick(["fade", "wait"]);
@@ -1930,7 +2323,7 @@ class SequencerPanel extends HTMLElement {
     const wait = (w) => {
       if (!w || !w.conditions?.length) return null;
       const conditions = w.conditions.filter((c) => c.entity_id).map((c) => {
-        if (!ENTITY_RE.test(c.entity_id)) throw new Error(`${label}: ogiltig entitet "${c.entity_id}" i villkor.`);
+        if (!ENTITY_RE.test(c.entity_id)) throw new Error(T("{0}: ogiltig entitet \"{1}\" i villkor.", label, c.entity_id));
         return { entity_id: c.entity_id, attribute: c.attribute || "", state: c.state || "" };
       });
       return conditions.length ? { mode: w.mode || "all", timeout: Number(w.timeout || 60), on_timeout: w.on_timeout || "continue", conditions } : null;
@@ -1951,25 +2344,25 @@ class SequencerPanel extends HTMLElement {
         nodes: d.nodes.map((n) => this._cleanNode(n)),
         edges: d.edges.map((e) => ({ from: e.from, to: e.to })),
         zones: d.zones.map((z) => {
-          if (!z.name.trim()) throw new Error(z.standalone ? "En sekvens saknar namn." : "En grupp saknar namn.");
+          if (!z.name.trim()) throw new Error(z.standalone ? T("En sekvens saknar namn.") : T("En grupp saknar namn."));
           const delayOf = (st) => (st.delay === "" || st.delay == null ? null : Number(st.delay));
           const step = (st) => {
             if (!isMoment(st)) return { node: st.node, delay: delayOf(st), force: !!st.force };
-            const label = `${z.name}: ${st.name || "moment"}`;
+            const label = `${z.name}: ${st.name || T("moment")}`;
             const clean = this._cleanNode({ id: st.id, name: label, entities: st.entities || [], on: { ...st.spec, _dataText: st.spec._dataText }, off: { action: "none" }, wait_on: st.wait });
-            if (momentType(st) === "wait" && !clean.wait_on) throw new Error(`${label}: välj entitet att vänta på.`);
+            if (momentType(st) === "wait" && !clean.wait_on) throw new Error(T("{0}: välj entitet att vänta på.", label));
             return { kind: "action", id: st.id, name: st.name || "", entities: st.entities || [], spec: clean.on, wait: clean.wait_on, delay: delayOf(st) };
           };
           const custom = z.custom ? { start: z.custom.start.map(step), stop: z.custom.stop.map(step), base_start: z.custom.base_start || [], base_stop: z.custom.base_stop || [] } : null;
           const extras = !z.custom && z.extras ? Object.fromEntries(["start", "stop"].map((w) => [w, (z.extras[w] || []).map((e) => ({ after: e.after || null, step: step(e.step) }))])) : null;
           const led = (z.led || "").trim();
-          if (led && !ENTITY_RE.test(led)) throw new Error(`${z.name}: ogiltig LED-entitet.`);
+          if (led && !ENTITY_RE.test(led)) throw new Error(T("{0}: ogiltig LED-entitet.", z.name));
           return { id: z.id, name: z.name.trim(), icon: z.icon || "", color: z.color, nodes: z.standalone ? [] : z.nodes, standalone: !!z.standalone, custom, extras, led, led_minutes: Number(z.led_minutes ?? 30) };
         }),
         remotes: d.remotes.map((r) => {
           if (r.kind === "event" || r.trigger?.platform === "event") {
-            const data = this._parseData(r._dataText, r.name || "Fjärrkontroll");
-            if (!r.trigger?.event_type) throw new Error(`${r.name || "Fjärrkontroll"}: ange händelsetyp.`);
+            const data = this._parseData(r._dataText, r.name || T("Fjärrkontroll"));
+            if (!r.trigger?.event_type) throw new Error(T("{0}: ange händelsetyp.", r.name || T("Fjärrkontroll")));
             r.trigger = { platform: "event", event_type: r.trigger.event_type, event_data: data };
           }
           return { id: r.id, name: r.name || "", enabled: r.enabled !== false, kind: r.kind || "event", trigger: r.trigger || null,
@@ -1986,7 +2379,7 @@ class SequencerPanel extends HTMLElement {
       this._render();
       this._toast("Sparat ✓");
     } catch (e) {
-      this._saveError = `Kunde inte spara: ${e.message || e}`; this._renderSaveBar();
+      this._saveError = T("Kunde inte spara: {0}", e.message || e); this._renderSaveBar();
     } finally { this._saving = false; }
   }
 }

@@ -22,6 +22,7 @@ from homeassistant.helpers.trigger import (
 
 from . import graph, netcontrol
 from .dmx import DmxEngine, parse_channels
+from .i18n import tr, translator
 from .const import (
     ALL_ZONES,
     EVENT_SEQUENCER,
@@ -231,7 +232,7 @@ class SequencerManager:
 
     async def _async_run(self, key: str, starting: bool) -> None:
         zone = self.zone(key)
-        name = zone["name"] if zone else "Alla"
+        name = zone["name"] if zone else tr(self.hass, "Alla")
         errors: list[str] = []
         completed = False
         try:
@@ -280,7 +281,7 @@ class SequencerManager:
                 # Free moment (colour change, pause, DMX scene …): always runs, no state tracking.
                 todo.append(({
                     "id": f"moment_{step.get('id')}",
-                    "name": step.get("name") or "Moment",
+                    "name": step.get("name") or tr(self.hass, "Moment"),
                     "entities": step.get("entities") or [],
                     "on": step.get("spec") or {"action": "none"},
                     "wait_on": step.get("wait"),
@@ -316,7 +317,7 @@ class SequencerManager:
                         _LOGGER.warning("Sequence '%s' aborted at '%s': %s", key, label, err)
                         return errors
                     except TimeoutError:
-                        errors.append(f"{label}: väntade för länge, fortsätter")
+                        errors.append(tr(self.hass, "{label}: väntade för länge, fortsätter", label=label))
                         self._set_op(key, errors=list(errors))
 
                 try:
@@ -359,9 +360,10 @@ class SequencerManager:
             return
         timeout = float(wait.get("timeout") or 60)
         entities = [c["entity_id"] for c in wait["conditions"] if c.get("entity_id")]
-        joiner = " eller " if wait.get("mode") == "any" else " och "
+        joiner = f" {tr(self.hass, 'eller' if wait.get('mode') == 'any' else 'och')} "
+        anything = tr(self.hass, "något")
         text = joiner.join(
-            f"{self._friendly(c.get('entity_id'))}{'.' + c['attribute'] if c.get('attribute') else ''} = {c.get('state') or 'något'}"
+            f"{self._friendly(c.get('entity_id'))}{'.' + c['attribute'] if c.get('attribute') else ''} = {c.get('state') or anything}"
             for c in wait["conditions"]
         )
         self._set_op(key, waiting=text, wait_until=time.time() + timeout)
@@ -379,7 +381,7 @@ class SequencerManager:
                 await done.wait()
         except TimeoutError:
             if wait.get("on_timeout") == "abort":
-                raise SequenceAborted(f"villkoret uppfylldes inte inom {timeout:g} s") from None
+                raise SequenceAborted(tr(self.hass, "villkoret uppfylldes inte inom {timeout} s", timeout=f"{timeout:g}")) from None
             raise
         finally:
             unsub()
@@ -401,7 +403,7 @@ class SequencerManager:
         if action == "light" or action == "light_off":
             lights = [e for e in entities if e.startswith("light.")]
             if not lights:
-                raise ValueError("inga light-entiteter att dimma")
+                raise ValueError(tr(self.hass, "inga light-entiteter att dimma"))
             data["entity_id"] = lights
             transition = float(spec.get("transition") or 0)
             if transition > 0:
@@ -432,12 +434,13 @@ class SequencerManager:
                 int(spec.get("timeout") or 0),
                 spec.get("force", True) is not False,
                 bool(spec.get("reboot")),
+                translator(self.hass),
             )
         elif action in ("dmx", "dmx_off"):
             src = spec if action == "dmx" else (node.get("on") or {})
             if src.get("action") != "dmx":
-                raise ValueError("DMX-släckning kräver att påslaget är DMX")
-            values = parse_channels(src.get("channels"))
+                raise ValueError(tr(self.hass, "DMX-släckning kräver att påslaget är DMX"))
+            values = parse_channels(src.get("channels"), translator(self.hass))
             if action == "dmx_off":
                 values = {ch: 0 for ch in values}
             fade = float(spec.get("fade") or 0)
@@ -447,7 +450,7 @@ class SequencerManager:
         elif action == "service":
             service = spec.get("service") or ""
             if "." not in service:
-                raise ValueError(f"ogiltig tjänst '{service}'")
+                raise ValueError(tr(self.hass, "ogiltig tjänst '{service}'", service=service))
             if entities and "entity_id" not in data:
                 data["entity_id"] = entities
             domain, service_name = service.split(".", 1)
@@ -561,7 +564,7 @@ class SequencerManager:
                 _LOGGER.warning("Could not set up remote '%s': %s", name, err)
                 continue
             if unsub is None:
-                status["error"] = "Kunde inte starta utlösaren"
+                status["error"] = tr(self.hass, "Kunde inte starta utlösaren")
             else:
                 self._remote_unsubs.append(unsub)
         self._notify()
@@ -592,5 +595,5 @@ class SequencerManager:
         try:
             await self.async_zone(remote.get("target") or ALL_ZONES, remote.get("action") or "toggle")
         except KeyError:
-            self.remote_status[rid]["error"] = "Gruppen finns inte längre"
+            self.remote_status[rid]["error"] = tr(self.hass, "Gruppen finns inte längre")
             self._notify()

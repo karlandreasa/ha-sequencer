@@ -21,6 +21,7 @@ from .const import (
     STATIC_URL,
     VERSION,
 )
+from .i18n import tr
 from .manager import SequencerManager
 
 PLATFORMS = [Platform.SWITCH]
@@ -67,7 +68,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name=PANEL_COMPONENT,
-        sidebar_title=PANEL_TITLE,
+        sidebar_title=tr(hass, PANEL_TITLE),
         sidebar_icon=PANEL_ICON,
         module_url=f"{STATIC_URL}/sequencer-panel.js?v={VERSION}",
         require_admin=True,

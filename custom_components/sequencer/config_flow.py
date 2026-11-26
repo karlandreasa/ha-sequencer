@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 
 from .const import DOMAIN
+from .i18n import tr
 
 
 class SequencerConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -16,5 +17,5 @@ class SequencerConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
         if user_input is not None:
-            return self.async_create_entry(title="Sekvensstyrning", data={})
+            return self.async_create_entry(title=tr(self.hass, "Sekvensstyrning"), data={})
         return self.async_show_form(step_id="user")

@@ -1,103 +1,107 @@
-# Sequencer – sekvensstyrning för Home Assistant
+# Sequencer – power sequencing for Home Assistant
 
-Lägger till fliken **Sekvenser** i sidomenyn. Där ritar du upp din anläggning, till exempel mixer → DSP → slutsteg, och delar in den i grupper som rum eller zoner. Sedan startar och stänger du grupperna i rätt ordning, från panelen, från en switch eller direkt från en fjärrkontroll. Inga automationer behövs.
+🇬🇧 English · 🇸🇪 [Svenska](README.sv.md)
 
-## Flikar
+Adds a **Sequences** tab to the sidebar. Draw up your system there, e.g. mixer → DSP → amplifiers, and divide it into groups such as rooms or zones. Then start and stop the groups in the right order: from the panel, from a switch, or directly from a remote control. No automations needed.
 
-| Flik | Vad du gör där |
+## Tabs
+
+| Tab | What you do there |
 |---|---|
-| **Styrning** | Starta och stäng av grupper och sekvenser, "Stäng av allt" och live-schema över vad som är igång. |
-| **Utrustning & regler** | *Schema:* lägg till utrustning med en bild och dra pilar mellan enheterna. En pil betyder **startas före** och **stängs av efter**. *Regler:* samma ordning i textform, plus prioritet (alltid först / alltid sist), fördröjningar och väntevillkor. Reglerna gäller hela anläggningen. |
-| **Grupper** | Välj vilken utrustning en grupp behöver. Det som krävs före tas med automatiskt. Här väljer du också gruppens status-LED. |
-| **Sekvenser** | Varje grupp får en sekvens automatiskt. Den kan justeras för hand, och du kan också göra egna sekvenser helt utan grupper. Se nedan. |
-| **Fjärrkontroller** | Koppla knappar till grupper och sekvenser med åtgärden *Starta*, *Stäng av* eller *Växla*. Lyssna-läget hittar knappen åt dig. |
+| **Control** | Start and stop groups and sequences, "Turn everything off", and a live diagram of what is running. |
+| **Equipment & rules** | *Diagram:* add equipment with a picture and draw arrows between units. An arrow means **started before** and **turned off after**. *Rules:* the same order as text, plus priority (always first / always last), delays and wait conditions. The rules apply to the whole system. |
+| **Groups** | Choose the equipment a group needs. Whatever is required before it is included automatically. This is also where you choose the group's status LED. |
+| **Sequences** | Every group gets a sequence automatically. It can be adjusted by hand, and you can also make your own sequences without any groups. See below. |
+| **Remotes** | Link buttons to groups and sequences with the action *Start*, *Turn off* or *Toggle*. Listen mode finds the button for you. |
 
-## Sekvenser
+## Sequences
 
-- **Automatisk:** byggs av reglerna och gruppens utrustning och följer med när något ändras.
-- **Moment** (ljus/färg, paus, vänta tills …, DMX-scen, tjänst, slå på/av en entitet) läggs in var du vill. Moment följer inga regler och ger aldrig varningar. I en automatisk sekvens låser de inte heller sekvensen, utan den fortsätter att följa reglerna.
-- **Anpassad** (🟡): när du flyttar, tar bort eller lägger till utrustning eller ändrar en fördröjning blir sekvensen anpassad, och den uppdateras då inte längre av sig själv. *Återställ till automatisk* finns alltid.
-- **Gruppen har ändrats** (🟠): om gruppen eller reglerna ändras efter att du anpassat sekvensen ser du vad som saknas. Du kan välja *Lägg till saknade på föreslagen plats*, *Behåll min version* eller *Återställ*.
-- **⚠ Varning** visas **bara** när din ordning bryter mot en regel, t.ex. slutsteg före mixer. Sekvensen körs ändå i din ordning.
-- **Kör på ändå:** det som redan är igång, t.ex. mixern från ett annat rum, hoppas över, inklusive dess väntan och fördröjning.
-- **Delad utrustning** hoppas över vid avstängning om en annan grupp eller sekvens som är igång använder den, utom när steget är markerat *stäng alltid av*.
+- **Automatic:** built from the rules and the group's equipment, and follows along when something changes.
+- **Moments** (light/colour, pause, wait until …, DMX scene, service, turn an entity on/off) can be placed anywhere. Moments follow no rules and never give warnings. In an automatic sequence they don't lock it either – it keeps following the rules.
+- **Customised** (🟡): when you move, remove or add equipment or change a delay, the sequence becomes customised and no longer updates itself. *Reset to automatic* is always available.
+- **The group has changed** (🟠): if the group or the rules change after you customised the sequence, you see what is missing and can choose *Add missing at the suggested position*, *Keep my version* or *Reset*.
+- **⚠ A warning** appears **only** when your order breaks a rule, e.g. amplifier before mixer. The sequence still runs in your order.
+- **Carry on anyway:** anything already running, e.g. the mixer from another room, is skipped – including its wait and delay.
+- **Shared equipment** is skipped when turning off if another running group or sequence uses it, unless the step is marked *always turn off*.
 
-## Lyssna – lägg till med knapptryck
+## Listen – add by button press
 
-Ett trådlöst uttag eller en enhet med en fysisk knapp hittar du genom att trycka på knappen:
+Find a wireless plug or a device with a physical button by pressing the button:
 
-- **Utrustning & regler → Schema → Lägg till med knapptryck**: skapar ny utrustning med namn och en gissad bild.
-- **I utrustningens inställningar → Lyssna**: lägger till entiteten i befintlig utrustning.
-- **Vid väntevillkor → Bevaka status**: skapar villkoret "vänta tills X = det nya läget".
+- **Equipment & rules → Diagram → Add by button press**: creates new equipment with a name and a guessed picture.
+- **In the equipment settings → Listen**: adds the entity to existing equipment.
+- **For wait conditions → Watch status**: creates the condition "wait until X = the new state".
 
-## Mobil
+## Mobile
 
-Panelen känner av sin bredd. På mobil flyttas flikarna till en meny längst ner, redigerare öppnas i helskärm, tabeller blir kort och flödesschemat får zoomknappar. Kopplingar kan också göras i utrustningens inställningar under *Kopplingar*, så du behöver inte dra pilar med fingret.
+The panel adapts to its width. On mobile the tabs move to a bottom bar, editors open full screen, tables become cards and the diagram gets zoom buttons. Connections can also be made in the equipment settings under *Connections*, so you don't have to draw arrows with your finger.
 
-## Delad utrustning
+## Shared equipment
 
-Om Vardagsrum och Kök delar samma mixer gäller följande:
+If the living room and the kitchen share the same mixer:
 
-- Mixern startas när den första gruppen startar. Det som redan är igång hoppas över.
-- Mixern stängs bara av när **ingen** annan grupp som använder den är igång.
+- The mixer is started when the first group starts. Anything already running is skipped.
+- The mixer is only turned off when **no** other group using it is running.
 
-## Per utrustning
+## Per piece of equipment
 
-- **Påslag och avstängning:** slå på/stäng av entiteterna, valfri tjänst med JSON-data, eller *ingen åtgärd*. Det sista passar passiva högtalare som bara ska synas i schemat.
-- **Vänta efter påslag / avstängning** i sekunder.
-- **Vänta tills …** en eller flera entiteter (eventuellt ett attribut) har ett visst värde, till exempel `sensor.slutsteg_status = ready`. Du väljer *alla* (X och Y) eller *något* (X eller Y), en maxtid, och om sekvensen ska fortsätta eller avbrytas när tiden går ut.
-- **Prioritet:** *Alltid först* betyder att enheten startas före allt annat i samma körning och stängs av sist. *Alltid sist* betyder tvärtom. Prioritet påverkar bara ordningen. Den gör inte att enheten följer med i en grupp, det gör pilarna och gruppvalet.
-- **Testa:** knappar för att slå på eller stänga av en enhet direkt.
+- **Turning on and off:** turn the entities on/off, any service with JSON data, or *no action* – the latter suits passive speakers that should only appear in the diagram.
+- **Wait after turning on / off** in seconds.
+- **Wait until …** one or more entities (optionally an attribute) have a certain value, e.g. `sensor.amp_status = ready`. Choose *all* (X and Y) or *any* (X or Y), a maximum time, and whether the sequence should continue or abort when the time runs out.
+- **Priority:** *Always first* means the unit starts before everything else in the same run and turns off last. *Always last* is the opposite. Priority only affects the order – it doesn't pull the unit into a group; the arrows and group selection do that.
+- **Test:** buttons to turn a unit on or off right away.
 
-## Typer av utrustning
+## Types of equipment
 
-Varje utrustning har ett *påslag* och en *avstängning*:
+Each piece of equipment has a *turn-on* and a *turn-off* action:
 
-| Åtgärd | Används till |
+| Action | Used for |
 |---|---|
-| **Slå på / Stäng av** | Switchar, uttag, mediaspelare och liknande. |
-| **Tänd / dimma ljus** | Ljusstyrka, övergång (direkt, snabbt, mjukt, långsamt eller egen tid) och färg eller färgtemperatur. Gäller light-entiteter. Du kan välja att vänta tills övergången är klar innan nästa steg. |
-| **Wake on LAN** | Startar en dator med MAC-adress och eventuell broadcast-adress. Lägg gärna till en ping-sensor som entitet, så syns status och du kan vänta på att datorn är uppe. |
-| **Stäng av Windows-dator (RPC)** | Samma protokoll som `shutdown /s /m \\dator`. Kräver ett administratörskonto, att *Fil- och skrivardelning* är tillåten i brandväggen och, för lokala konton, `LocalAccountTokenFilterPolicy=1`. Ett hjälpbibliotek (impacket) installeras automatiskt första gången funktionen används. |
-| **DMX** | Art-Net eller sACN (E1.31) direkt till en DMX-nod i nätverket. Kanaler skrivs som `1=255, 2-4=50%`, och du väljer fade-tid. Avstängningen *släck samma kanaler* fadar ner det som tändes. Om du redan har DMX-lampor som light-entiteter i HA kan du använda *Tänd / dimma ljus* i stället. |
-| **Tjänst** | Valfri HA-tjänst med JSON-data. |
+| **Turn on / Turn off** | Switches, plugs, media players and the like. |
+| **Light up / dim** | Brightness, transition (instant, fast, soft, slow or custom) and colour or colour temperature. For light entities. You can choose to wait for the transition to finish before the next step. |
+| **Wake on LAN** | Starts a computer by MAC address and optional broadcast address. Add a ping sensor as an entity to show its status and to wait until the computer is up. |
+| **Shut down Windows PC (RPC)** | Same protocol as `shutdown /s /m \\pc`. Requires an administrator account, *File and Printer Sharing* allowed in the firewall and, for local accounts, `LocalAccountTokenFilterPolicy=1`. A helper library (impacket) is installed automatically the first time the feature is used. |
+| **DMX** | Art-Net or sACN (E1.31) directly to a DMX node on the network. Channels are written as `1=255, 2-4=50%` and you choose a fade time. The turn-off action *turn off the same channels* fades down whatever was turned on. If you already have DMX lights as light entities in HA, you can use *Light up / dim* instead. |
+| **Service** | Any HA service with JSON data. |
 
-Det finns bilder för bland annat mixer, slutsteg, DSP, högtalare, ljusbord, strålkastare, PAR-lampa, moving head, dimmerrack, DMX-nod, kors, dator och projektor.
+There are pictures for mixer, amplifier, DSP, speakers, lighting console, spotlight, PAR can, moving head, dimmer rack, DMX node, cross, computer, projector and more.
 
-## Status-LED per grupp
+## Status LED per group
 
-Välj en light- eller switch-entitet, t.ex. en GPIO-LED:
+Choose a light or switch entity, e.g. a GPIO LED:
 
-- **Långsam blinkning** medan sekvensen körs.
-- **Fast sken** när allt startade eller stängdes av som det skulle. Släcks efter 30 min, och tiden går att ändra.
-- **Snabb blinkning** vid fel. Fortsätter tills gruppen körs igen.
+- **Slow blinking** while the sequence runs.
+- **Steady light** when everything started or turned off as it should. Turns off after 30 min (adjustable).
+- **Fast blinking** on errors, until the group runs again.
 
-## Fjärrkontroller
+## Remotes
 
-- **Lyssna:** tryck på knappen inom 60 s och välj rätt rad. Det fungerar med ZHA, deCONZ, Hue, Z-Wave, Zigbee2MQTT (action-sensorer), event-entiteter och knappar.
-- **Enhet:** välj enhet och knapp, på samma sätt som i HA:s automationsredigerare.
-- **Entitet** eller **Händelse:** manuellt läge för avancerade fall.
+- **Listen:** press the button within 60 s and choose the right row. Works with ZHA, deCONZ, Hue, Z-Wave, Zigbee2MQTT (action sensors), event entities and buttons.
+- **Device:** choose device and button, just like in HA's automation editor.
+- **Entity** or **Event:** manual modes for advanced cases.
 
-## I Home Assistant
+## In Home Assistant
 
-- `switch.<grupp>`: på startar gruppen och av stänger den. Attributen visar status, aktuellt steg, vad den väntar på och eventuella fel.
-- Eventet `sequencer_event` (`type: started/finished`, `action: start/stop`, `zone_id`, `errors`).
+- `switch.<group>`: on starts the group, off turns it off. Attributes show status, current step, what it is waiting for and any errors. Created for both groups and own sequences.
+- The event `sequencer_event` (`type: started/finished`, `action: start/stop`, `zone_id`, `errors`).
 
 ## Installation
 
-**Marketplace (HA 2026.11+):** Inställningar → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → installera → starta om. Lägg sedan till integrationen *Sequencer* under Enheter och tjänster.
+**Marketplace (HA 2026.11+):** Settings → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → install → restart. Then add the *Sequencer* integration under Devices & services.
 
-`switch.<namn>` skapas för både grupper och egna sekvenser.
+Sequences from version 1 are converted to equipment and groups automatically.
 
-Sekvenser från version 1 konverteras automatiskt till utrustning och grupper.
+## Language
 
-## Tredjepart och erkännanden
+The panel is shown in Swedish if your HA language is Swedish, otherwise in English. Developers: new texts are written in Swedish in the code with `T("…")` and get an English translation in `tools/i18n/en.json`. Run `python3 tools/i18n/build.py` (and `tools/i18n/check_backend.py`) to inject and check the translations.
 
-- **Art-Net™** Designed by and Copyright Artistic Licence Engineering Ltd. Sequencer skickar ArtDmx-paket enligt den publicerade, royaltyfria specifikationen.
-- **sACN / ANSI E1.31** är en öppen standard från ESTA.
-- **Windows-avstängning** använder protokollet [MS-RSP], som Microsoft har publicerat som en Open Specification. Funktionen använder biblioteket **[Impacket](https://github.com/fortra/impacket)** ("This product includes software developed by SecureAuth Corporation"). Impacket ingår inte i det här repot. Home Assistant installerar det från PyPI först när funktionen används, och då gäller Impackets egen licens (en modifierad Apache Software License 1.1).
-- Bilderna på utrustning är egna, enkla SVG-ritningar.
+## Third party and acknowledgements
 
-## Licens
+- **Art-Net™** Designed by and Copyright Artistic Licence Engineering Ltd. Sequencer sends ArtDmx packets according to the published, royalty-free specification.
+- **sACN / ANSI E1.31** is an open standard from ESTA.
+- **Windows shutdown** uses the [MS-RSP] protocol, published by Microsoft as an Open Specification, via the **[Impacket](https://github.com/fortra/impacket)** library ("This product includes software developed by SecureAuth Corporation"). Impacket is not included in this repository; Home Assistant installs it from PyPI the first time the feature is used, under Impacket's own license (a modified Apache Software License 1.1).
+- The equipment pictures are original, simple SVG drawings.
 
-Apache License 2.0. Se [LICENSE](LICENSE) och [NOTICE](NOTICE). Du får använda, ändra och sprida koden, även kommersiellt, så länge licensen och NOTICE följer med. Licensen ger ingen rätt att använda projektets namn eller varumärke.
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). You may use, modify and distribute the code, including commercially, as long as the license and NOTICE are included. The license grants no right to use the project's name or trademarks.

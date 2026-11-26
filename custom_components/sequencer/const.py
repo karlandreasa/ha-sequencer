@@ -1,7 +1,7 @@
 """Constants for the Sequencer integration."""
 
 DOMAIN = "sequencer"
-VERSION = "2.4.0"
+VERSION = "2.5.0"
 
 STORAGE_KEY_V1 = f"{DOMAIN}.sequences"
 STORAGE_KEY_CONFIG = f"{DOMAIN}.config"

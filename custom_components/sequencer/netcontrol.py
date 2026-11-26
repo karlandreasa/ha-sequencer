@@ -8,6 +8,8 @@ import socket
 from homeassistant.core import HomeAssistant
 from homeassistant.requirements import async_process_requirements
 
+from .i18n import identity
+
 # Installed on first use only, so the integration still loads if it can't be installed.
 IMPACKET_REQUIREMENT = "impacket>=0.12.0"
 
@@ -16,10 +18,10 @@ MSRPC_UUID_INITSHUTDOWN = ("894DE0C0-0D55-11D3-A322-00C04FA321A1", "1.0")
 SHUTDOWN_REASON = 0x80000000
 
 
-def normalize_mac(mac: str) -> bytes:
+def normalize_mac(mac: str, tr=identity) -> bytes:
     clean = re.sub(r"[^0-9a-fA-F]", "", mac or "")
     if len(clean) != 12:
-        raise ValueError(f"Ogiltig MAC-adress '{mac}'")
+        raise ValueError(tr("Ogiltig MAC-adress '{mac}'", mac=mac))
     return bytes.fromhex(clean)
 
 
@@ -43,6 +45,7 @@ def windows_shutdown(
     timeout: int = 0,
     force: bool = True,
     reboot: bool = False,
+    tr=identity,
 ) -> None:
     """Ask a Windows PC to shut down via the InitShutdown RPC interface (\\pipe\\InitShutdown).
 
@@ -71,6 +74,6 @@ def windows_shutdown(
         resp = dce.request(req, checkError=False)
         code = resp["ErrorCode"]
         if code not in (0, 0x45B):  # 0x45B = shutdown already in progress
-            raise RuntimeError(f"Windows svarade med felkod 0x{code:08X}")
+            raise RuntimeError(tr("Windows svarade med felkod 0x{code}", code=f"{code:08X}"))
     finally:
         dce.disconnect()

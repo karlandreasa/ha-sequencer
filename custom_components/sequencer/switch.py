@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import SequencerConfigEntry, graph
 from .const import DOMAIN, PANEL_ICON, SIGNAL_ZONE_ADDED, SIGNAL_ZONE_REMOVED, VERSION
+from .i18n import tr
 from .manager import SequencerManager
 
 
@@ -41,7 +42,7 @@ class ZoneSwitch(SwitchEntity):
         self._attr_unique_id = f"{DOMAIN}_{zone_id}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, "sequencer")},
-            name="Sekvensstyrning",
+            name=tr(manager.hass, "Sekvensstyrning"),
             manufacturer="Sequencer",
             sw_version=VERSION,
         )

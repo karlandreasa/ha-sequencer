@@ -17,6 +17,8 @@ import uuid
 
 from homeassistant.core import HomeAssistant
 
+from .i18n import identity
+
 _LOGGER = logging.getLogger(__name__)
 
 ARTNET_PORT = 6454
@@ -26,7 +28,7 @@ FADE_FPS = 30
 _PART = re.compile(r"(\d+)(?:\s*-\s*(\d+))?\s*[=:]\s*(\d+(?:[.,]\d+)?)\s*(%)?")
 
 
-def parse_channels(text: str | None) -> dict[int, int]:
+def parse_channels(text: str | None, tr=identity) -> dict[int, int]:
     """'1=255, 2-4=50%, 10:128' -> {1: 255, 2: 128, 3: 128, 4: 128, 10: 128}."""
     out: dict[int, int] = {}
     for part in re.split(r"[,;\n]+", text or ""):
@@ -35,16 +37,16 @@ def parse_channels(text: str | None) -> dict[int, int]:
             continue
         m = _PART.fullmatch(part)
         if not m:
-            raise ValueError(f"Kan inte tolka '{part}' – skriv t.ex. 1=255, 2-4=50%")
+            raise ValueError(tr("Kan inte tolka '{part}' – skriv t.ex. 1=255, 2-4=50%", part=part))
         first = int(m[1])
         last = int(m[2] or first)
         value = float(m[3].replace(",", "."))
         if m[4]:
             value = value * 255 / 100
         if not 1 <= first <= last <= 512:
-            raise ValueError(f"Kanal utanför 1–512 i '{part}'")
+            raise ValueError(tr("Kanal utanför 1–512 i '{part}'", part=part))
         if not 0 <= value <= 255:
-            raise ValueError(f"Värde utanför 0–255 (0–100 %) i '{part}'")
+            raise ValueError(tr("Värde utanför 0–255 (0–100 %) i '{part}'", part=part))
         for ch in range(first, last + 1):
             out[ch] = int(round(value))
     return out
