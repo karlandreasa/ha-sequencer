@@ -16,7 +16,7 @@ Lägger till fliken **Sekvenser** i sidomenyn. Där bygger du sekvenser som star
 
 ## Installation
 
-**HACS:** HACS → ⋮ → *Custom repositories* → `https://github.com/karlandreasa/ha-sequencer`, typ *Integration* → sök på Sequencer → Download → starta om.
+**Marketplace (HA 2026.11+):** Inställningar → Marketplace → *Add from link* → `karlandreasa/ha-sequencer` → installera → starta om. (Äldre HA med HACS: lägg till samma repo som *Custom repository*, typ *Integration*.)
 
 **Manuellt:** kopiera `custom_components/sequencer` till `/config/custom_components/sequencer`.
 
